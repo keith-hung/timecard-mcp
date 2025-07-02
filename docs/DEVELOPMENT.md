@@ -501,7 +501,7 @@ export class MockTimeCardPage {
    ```bash
    git clone https://github.com/your-username/timecard-mcp.git
    cd timecard-mcp
-   git remote add upstream https://github.com/original-org/timecard-mcp.git
+   git remote add upstream https://github.com/keith-hung/timecard-mcp.git
    ```
 
 2. **Create Feature Branch**

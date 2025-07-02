@@ -15,7 +15,7 @@ export TIMECARD_PASSWORD="your_password"
 export TIMECARD_BASE_URL="http://your-timecard-server/app/"
 
 # 2. 執行伺服器
-npx git+https://github.com/your-org/timecard-mcp.git
+npx git+https://github.com/keith-hung/timecard-mcp.git
 ```
 
 **注意：**
