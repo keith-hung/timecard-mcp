@@ -1,0 +1,35 @@
+{
+  "name": "timecard-mcp",
+  "version": "1.0.0",
+  "description": "TimeCard Recording System MCP Tools",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsc --watch",
+    "test": "node tests/test-mcp.js",
+    "test:url": "node tests/test-url-logic.js",
+    "prepare": "npm run build"
+  },
+  "keywords": [
+    "mcp",
+    "timecard",
+    "timesheet",
+    "automation",
+    "playwright"
+  ],
+  "author": "Keith",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^0.6.0",
+    "playwright": "^1.45.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  },
+  "bin": {
+    "timecard-mcp": "dist/index.js"
+  }
+}
