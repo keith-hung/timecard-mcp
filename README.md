@@ -6,7 +6,7 @@ A Model Context Protocol (MCP) implementation for automating timesheet managemen
 
 ## 🚀 最快速入門 (Quickest Start)
 
-如果您只是想快速測試 TimeCard MCP 伺服器，而不需要完整的本地設定，可以直接從 Git 倉庫使用 `npx` 執行 (需要 Node.js v16+)。
+如果您只是想快速測試 TimeCard MCP 伺服器，而不需要完整的本地設定，可以直接從 Git 倉庫使用 `npx` 執行 (需要 Node.js v18+)。
 
 ```bash
 # 1. 設定環境變數 (請替換為您的實際憑證)
