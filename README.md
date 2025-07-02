@@ -4,9 +4,9 @@ A Model Context Protocol (MCP) implementation for automating timesheet managemen
 
 ---
 
-## 🚀 最快速入門 (Quickest Start)
+## 🚀 快速開始 (Quick Start)
 
-如果您只是想快速測試 TimeCard MCP 伺服器，而不需要完整的本地設定，可以直接從 Git 倉庫使用 `npx` 執行 (需要 Node.js v18+)。
+推薦使用 `npx` 方式執行 TimeCard MCP 伺服器，這樣可以自動獲取最新版本且無需手動維護 (需要 Node.js v18+)。
 
 ```bash
 # 1. 設定環境變數 (請替換為您的實際憑證)
@@ -18,15 +18,39 @@ export TIMECARD_BASE_URL="http://your-timecard-server/app/"
 npx git+https://github.com/keith-hung/timecard-mcp.git
 ```
 
-**注意：**
-*   這將在您目前的終端機會話中執行伺服器。它不適用於持久的後台操作，也不適用於直接與 MCP 客戶端 (如 Claude Desktop) 整合。
-*   請確保您的 `TIMECARD_BASE_URL` 包含應用程式路徑 (例如：`http://your-timecard-server/app/`)。
+### 與 Claude Desktop 整合
+
+您可以直接在 Claude Desktop 配置中使用 `npx` 方式：
+
+```json
+{
+  "mcpServers": {
+    "timecard": {
+      "command": "npx",
+      "args": ["git+https://github.com/keith-hung/timecard-mcp.git"],
+      "env": {
+        "TIMECARD_USERNAME": "your_username",
+        "TIMECARD_PASSWORD": "your_password",
+        "TIMECARD_BASE_URL": "http://your-timecard-server/app/"
+      }
+    }
+  }
+}
+```
+
+**優點：**
+*   自動保持最新版本
+*   無需手動安裝和建置
+*   配置簡潔
+*   npx 會快取已下載的套件，不會每次都重新下載
+
+**注意：** 請確保您的 `TIMECARD_BASE_URL` 包含應用程式路徑 (例如：`http://your-timecard-server/app/`)。
 
 ---
 
-## 🛠️ 完整本地設定 (Full Local Setup for Integration)
+## 🛠️ 進階設定：本地開發 (Advanced Setup: Local Development)
 
-如果您需要將 TimeCard MCP 伺服器與 Claude Desktop 或其他 MCP 客戶端進行長期整合，請按照以下步驟進行完整本地設定：
+如果您是開發者或需要特定版本控制、離線使用、或進行程式碼修改，可以選擇本地安裝：
 
 ### 1. 本地設定
 
@@ -50,9 +74,9 @@ export TIMECARD_PASSWORD="your_password"
 export TIMECARD_BASE_URL="http://your-timecard-server/app/"
 ```
 
-### 3. 新增至 Claude Desktop
+### 3. 新增至 Claude Desktop (本地版本)
 
-編輯您的 `~/Library/Application Support/Claude/claude_desktop_config.json` 檔案，以新增 TimeCard MCP 伺服器：
+編輯您的 `~/Library/Application Support/Claude/claude_desktop_config.json` 檔案：
 
 ```json
 {
@@ -70,6 +94,12 @@ export TIMECARD_BASE_URL="http://your-timecard-server/app/"
 }
 ```
 **注意：** 請將 `/absolute/path/to/timecard-mcp/` 替換為您複製此倉庫的實際路徑。
+
+**本地安裝的適用情況：**
+*   需要修改或擴展程式碼
+*   需要特定版本控制
+*   完全離線環境
+*   開發和調試需求
 
 ### 4. 重新啟動 Claude Desktop
 
