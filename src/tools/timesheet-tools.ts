@@ -92,7 +92,7 @@ const timecardSetTimesheetEntry: MCPTool = {
 
 const timecardSetDailyHours: MCPTool = {
   name: 'timecard_set_daily_hours',
-  description: 'Set daily hours for a specific entry and day. Works only with the currently displayed week. For cross-week operations, use timecard_get_timesheet first to navigate to the target week. For clearing hours (setting to 0), consider using timecard_clear_daily_hours for better efficiency when clearing an entire day. IMPORTANT: This only updates the UI temporarily. You must call timecard_save_timesheet afterwards to permanently save changes. Use timecard_get_timesheet to see saved data.',
+  description: 'Set daily hours for a specific entry and day. Works only with the currently displayed week. For cross-week operations, use timecard_get_timesheet first to navigate to the target week. For clearing hours (setting to 0), consider using timecard_clear_daily_hours for better efficiency when clearing an entire day. IMPORTANT: To modify existing timesheet configurations for a day, you must first use timecard_clear_daily_hours to clear that day, then timecard_save_timesheet to save, then use this tool to set new hours, and timecard_save_timesheet again. This is required due to TimeCard system limitations where entries with existing hours cannot be directly modified. This only updates the UI temporarily. You must call timecard_save_timesheet afterwards to permanently save changes. Use timecard_get_timesheet to see saved data.',
   inputSchema: {
     type: 'object',
     properties: {
@@ -296,7 +296,7 @@ const timecardSetDailyNote: MCPTool = {
 
 const timecardClearDailyHours: MCPTool = {
   name: 'timecard_clear_daily_hours',
-  description: 'Efficiently clear all hours for a specific day across all entries that have project and activity set. Recommended over multiple timecard_set_daily_hours calls with hours=0. Works only with the currently displayed week. For cross-week operations, use timecard_get_timesheet first to navigate to the target week. IMPORTANT: This only updates the UI temporarily. You must call timecard_save_timesheet afterwards to permanently save changes. Strongly recommended to call timecard_get_timesheet after saving to verify the changes.',
+  description: 'Efficiently clear all hours for a specific day across all entries that have project and activity set. This is the required first step when modifying existing timesheet configurations for a day. After clearing, you must call timecard_save_timesheet to save changes and unlock entries for modification, then use timecard_set_daily_hours to set new hours, followed by timecard_save_timesheet again. Recommended over multiple timecard_set_daily_hours calls with hours=0. Works only with the currently displayed week. For cross-week operations, use timecard_get_timesheet first to navigate to the target week. IMPORTANT: This only updates the UI temporarily. You must call timecard_save_timesheet afterwards to permanently save changes. Strongly recommended to call timecard_get_timesheet after saving to verify the changes.',
   inputSchema: {
     type: 'object',
     properties: {
