@@ -223,4 +223,75 @@ export class TimeCardSession {
       return false;
     }
   }
+
+  async getCurrentWeekRange(): Promise<{ startDate: string; endDate: string; dates: string[] }> {
+    if (!this.page || !this.sessionInfo.authenticated) {
+      throw new Error('Not authenticated or page not available');
+    }
+
+    try {
+      // Get current week info from the page
+      // TimeCard typically shows the week range in the header or title
+      const pageTitle = await this.page.title();
+      const currentUrl = this.page.url();
+      
+      // Extract date from URL if available (cho_date parameter)
+      const urlMatch = currentUrl.match(/cho_date=(\d{4}-\d{2}-\d{2})/);
+      let referenceDate: Date;
+      
+      if (urlMatch) {
+        referenceDate = new Date(urlMatch[1]);
+      } else {
+        // Fallback to current date
+        referenceDate = new Date();
+      }
+      
+      // Calculate the Monday of the current week
+      const dayOfWeek = referenceDate.getDay();
+      const mondayDate = new Date(referenceDate);
+      mondayDate.setDate(referenceDate.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+      
+      // Calculate Saturday (end of work week)
+      const saturdayDate = new Date(mondayDate);
+      saturdayDate.setDate(mondayDate.getDate() + 5);
+      
+      // Generate all dates in the week
+      const dates: string[] = [];
+      for (let i = 0; i < 6; i++) {
+        const date = new Date(mondayDate);
+        date.setDate(mondayDate.getDate() + i);
+        dates.push(date.toISOString().split('T')[0]);
+      }
+      
+      return {
+        startDate: mondayDate.toISOString().split('T')[0],
+        endDate: saturdayDate.toISOString().split('T')[0],
+        dates
+      };
+    } catch (error) {
+      throw new Error(`Failed to get current week range: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  isDateInCurrentWeek(date: string): boolean {
+    try {
+      // This is a synchronous check based on the date format
+      // For a more accurate check, use getCurrentWeekRange() but that's async
+      const targetDate = new Date(date);
+      const today = new Date();
+      
+      // Calculate Monday of current week
+      const dayOfWeek = today.getDay();
+      const mondayDate = new Date(today);
+      mondayDate.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+      
+      // Calculate Saturday of current week
+      const saturdayDate = new Date(mondayDate);
+      saturdayDate.setDate(mondayDate.getDate() + 5);
+      
+      return targetDate >= mondayDate && targetDate <= saturdayDate;
+    } catch {
+      return false;
+    }
+  }
 }

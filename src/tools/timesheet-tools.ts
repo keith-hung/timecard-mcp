@@ -92,7 +92,7 @@ const timecardSetTimesheetEntry: MCPTool = {
 
 const timecardSetDailyHours: MCPTool = {
   name: 'timecard_set_daily_hours',
-  description: 'Set daily hours for a specific entry and day. IMPORTANT: This only updates the UI temporarily. You must call timecard_save_timesheet afterwards to permanently save changes. Use timecard_get_timesheet to see saved data.',
+  description: 'Set daily hours for a specific entry and day. Works only with the currently displayed week. For cross-week operations, use timecard_get_timesheet first to navigate to the target week. For clearing hours (setting to 0), consider using timecard_clear_daily_hours for better efficiency when clearing an entire day. IMPORTANT: This only updates the UI temporarily. You must call timecard_save_timesheet afterwards to permanently save changes. Use timecard_get_timesheet to see saved data.',
   inputSchema: {
     type: 'object',
     properties: {
@@ -104,7 +104,7 @@ const timecardSetDailyHours: MCPTool = {
       },
       day: {
         type: 'string',
-        description: 'Day (monday-saturday, 0-5, or YYYY-MM-DD)'
+        description: 'Day (monday-saturday, 0-5, or YYYY-MM-DD). If using YYYY-MM-DD, the date must be in the currently displayed week.'
       },
       hours: {
         type: 'number',
@@ -131,10 +131,34 @@ const timecardSetDailyHours: MCPTool = {
     }
 
     try {
+      // Check if date is in current week when using YYYY-MM-DD format
+      if (day.includes('-')) {
+        const weekRange = await session.getCurrentWeekRange();
+        if (!weekRange.dates.includes(day)) {
+          throw new Error(`Date ${day} is not in the current week (${weekRange.startDate} to ${weekRange.endDate}). Please use timecard_get_timesheet to navigate to the target week first, or use day names (monday-saturday) or indices (0-5) to work with the current week.`);
+        }
+      }
+
       const dayIndex = getDayIndex(day);
-      const hoursString = hours.toString();
+      // Use empty string for 0 hours, otherwise convert to string
+      const hoursString = hours === 0 ? '' : hours.toString();
       
-      await page.locator(`select[name="record${entry_index}_${dayIndex}"]`).selectOption(hoursString);
+      const hourSelector = page.locator(`select[name="record${entry_index}_${dayIndex}"]`);
+      
+      // Check if the select element exists and is enabled
+      if (await hourSelector.count() === 0) {
+        throw new Error(`Hour selector not found for entry ${entry_index}, day ${day}. Make sure the timesheet entry is set up first.`);
+      }
+      
+      const isEnabled = await hourSelector.isEnabled();
+      if (!isEnabled) {
+        throw new Error(`Hour selector for entry ${entry_index}, day ${day} is disabled. Make sure the project and activity are set first.`);
+      }
+      
+      await hourSelector.selectOption(hoursString);
+      
+      // Wait a bit for the UI to update
+      await page.waitForTimeout(200);
 
       return {
         success: true,
@@ -151,7 +175,7 @@ const timecardSetDailyHours: MCPTool = {
 
 const timecardSetDailyNote: MCPTool = {
   name: 'timecard_set_daily_note',
-  description: 'Set daily note for a specific entry and day. IMPORTANT: This only updates the UI temporarily. You must call timecard_save_timesheet afterwards to permanently save changes. Notes are not visible in timecard_get_timesheet until saved. WARNING: Note cannot contain special characters: #$%^&*=+{}[]|?\'"',
+  description: 'Set daily note for a specific entry and day. Works only with the currently displayed week. For cross-week operations, use timecard_get_timesheet first to navigate to the target week. IMPORTANT: This only updates the UI temporarily. You must call timecard_save_timesheet afterwards to permanently save changes. Notes are not visible in timecard_get_timesheet until saved. WARNING: Note cannot contain special characters: #$%^&*=+{}[]|?\'"',
   inputSchema: {
     type: 'object',
     properties: {
@@ -163,7 +187,7 @@ const timecardSetDailyNote: MCPTool = {
       },
       day: {
         type: 'string',
-        description: 'Day (monday-saturday, 0-5, or YYYY-MM-DD)'
+        description: 'Day (monday-saturday, 0-5, or YYYY-MM-DD). If using YYYY-MM-DD, the date must be in the currently displayed week.'
       },
       note: {
         type: 'string',
@@ -197,6 +221,14 @@ const timecardSetDailyNote: MCPTool = {
     }
 
     try {
+      // Check if date is in current week when using YYYY-MM-DD format
+      if (day.includes('-')) {
+        const weekRange = await session.getCurrentWeekRange();
+        if (!weekRange.dates.includes(day)) {
+          throw new Error(`Date ${day} is not in the current week (${weekRange.startDate} to ${weekRange.endDate}). Please use timecard_get_timesheet to navigate to the target week first, or use day names (monday-saturday) or indices (0-5) to work with the current week.`);
+        }
+      }
+
       const dayIndex = getDayIndex(day);
       
       // Check if page is still alive
@@ -262,20 +294,18 @@ const timecardSetDailyNote: MCPTool = {
   }
 };
 
-const timecardClearTimesheetEntry: MCPTool = {
-  name: 'timecard_clear_timesheet_entry',
-  description: 'Clear all data for a specific timesheet entry',
+const timecardClearDailyHours: MCPTool = {
+  name: 'timecard_clear_daily_hours',
+  description: 'Efficiently clear all hours for a specific day across all entries that have project and activity set. Recommended over multiple timecard_set_daily_hours calls with hours=0. Works only with the currently displayed week. For cross-week operations, use timecard_get_timesheet first to navigate to the target week. IMPORTANT: This only updates the UI temporarily. You must call timecard_save_timesheet afterwards to permanently save changes. Strongly recommended to call timecard_get_timesheet after saving to verify the changes.',
   inputSchema: {
     type: 'object',
     properties: {
-      entry_index: {
-        type: 'integer',
-        description: 'Entry index (0-9)',
-        minimum: 0,
-        maximum: 9
+      day: {
+        type: 'string',
+        description: 'Day to clear (monday-saturday, 0-5, or YYYY-MM-DD). If using YYYY-MM-DD, the date must be in the currently displayed week.'
       }
     },
-    required: ['entry_index']
+    required: ['day']
   },
   handler: async (args, session: TimeCardSession) => {
     const authResult = await session.ensureAuthenticated();
@@ -288,34 +318,57 @@ const timecardClearTimesheetEntry: MCPTool = {
       throw new Error('Browser page not available');
     }
 
-    const { entry_index } = args;
-
-    if (entry_index < 0 || entry_index > 9) {
-      throw new Error('Entry index must be between 0 and 9');
-    }
+    const { day } = args;
 
     try {
-      // Clear project selection
-      await page.locator(`select[name="project${entry_index}"]`).selectOption('');
+      // Check if date is in current week when using YYYY-MM-DD format
+      if (day.includes('-')) {
+        const weekRange = await session.getCurrentWeekRange();
+        if (!weekRange.dates.includes(day)) {
+          throw new Error(`Date ${day} is not in the current week (${weekRange.startDate} to ${weekRange.endDate}). Please use timecard_get_timesheet to navigate to the target week first, or use day names (monday-saturday) or indices (0-5) to work with the current week.`);
+        }
+      }
+
+      const dayIndex = getDayIndex(day);
+      const clearedEntries: number[] = [];
       
-      // Clear activity selection
-      await page.locator(`select[name="activity${entry_index}"]`).selectOption('');
-      
-      // Clear all daily hours
-      for (let dayIndex = 0; dayIndex < 6; dayIndex++) {
-        const hourSelector = `select[name="record${entry_index}_${dayIndex}"]`;
-        if (await page.locator(hourSelector).count() > 0) {
-          await page.locator(hourSelector).selectOption('');
+      // Set all entries (0-9) for the specified day to 0
+      for (let entryIndex = 0; entryIndex < 10; entryIndex++) {
+        try {
+          // Check if this entry has project and activity set (which enables the hour selector)
+          const projectSelect = page.locator(`select[name="project${entryIndex}"]`);
+          const activitySelect = page.locator(`select[name="activity${entryIndex}"]`);
+          
+          if (await projectSelect.count() > 0 && await activitySelect.count() > 0) {
+            const projectValue = await projectSelect.inputValue();
+            const activityValue = await activitySelect.inputValue();
+            
+            // Only clear hours for entries that have both project and activity set
+            if (projectValue && activityValue) {
+              const hourSelector = `select[name="record${entryIndex}_${dayIndex}"]`;
+              const hourSelect = page.locator(hourSelector);
+              
+              if (await hourSelect.count() > 0 && await hourSelect.isEnabled()) {
+                await hourSelect.selectOption('');
+                clearedEntries.push(entryIndex);
+              }
+            }
+          }
+        } catch (error) {
+          // Skip this entry if there's any error
+          continue;
         }
       }
 
       return {
         success: true,
-        entry_index,
-        message: `Entry ${entry_index} cleared successfully`
+        day,
+        day_index: dayIndex,
+        cleared_entries: clearedEntries,
+        message: `Cleared hours for day ${day} in ${clearedEntries.length} entries: ${clearedEntries.join(', ')}`
       };
     } catch (error) {
-      throw new Error(`Failed to clear timesheet entry ${entry_index}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`Failed to clear daily hours for day ${day}: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 };
@@ -324,5 +377,5 @@ export const timesheetTools: MCPTool[] = [
   timecardSetTimesheetEntry,
   timecardSetDailyHours,
   timecardSetDailyNote,
-  timecardClearTimesheetEntry
+  timecardClearDailyHours
 ];
