@@ -19,9 +19,12 @@ const timecardLogin: MCPTool = {
     required: []
   },
   handler: async (args, session: TimeCardSession) => {
+    // Ensure args is not null/undefined
+    const safeArgs = args || {};
+    
     // Try to get credentials from arguments first, then environment variables
-    const username = args.username || process.env.TIMECARD_USERNAME;
-    const password = args.password || process.env.TIMECARD_PASSWORD;
+    const username = safeArgs.username || process.env.TIMECARD_USERNAME;
+    const password = safeArgs.password || process.env.TIMECARD_PASSWORD;
 
     if (!username || !password) {
       return {

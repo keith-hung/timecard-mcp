@@ -58,7 +58,9 @@ const timecardSetTimesheetEntry: MCPTool = {
       throw new Error('Browser page not available');
     }
 
-    const { entry_index, project_id, activity_id } = args;
+    // Ensure args is not null/undefined
+    const safeArgs = args || {};
+    const { entry_index, project_id, activity_id } = safeArgs;
 
     if (entry_index < 0 || entry_index > 9) {
       throw new Error('Entry index must be between 0 and 9');
@@ -124,7 +126,9 @@ const timecardSetDailyHours: MCPTool = {
       throw new Error('Browser page not available');
     }
 
-    const { entry_index, day, hours } = args;
+    // Ensure args is not null/undefined
+    const safeArgs = args || {};
+    const { entry_index, day, hours } = safeArgs;
 
     if (entry_index < 0 || entry_index > 9) {
       throw new Error('Entry index must be between 0 and 9');
@@ -207,7 +211,9 @@ const timecardSetDailyNote: MCPTool = {
       throw new Error('Browser page not available');
     }
 
-    const { entry_index, day, note } = args;
+    // Ensure args is not null/undefined
+    const safeArgs = args || {};
+    const { entry_index, day, note } = safeArgs;
 
     if (entry_index < 0 || entry_index > 9) {
       throw new Error('Entry index must be between 0 and 9');
@@ -245,10 +251,13 @@ const timecardSetDailyNote: MCPTool = {
         throw new Error(`Note link not found for entry ${entry_index}, day ${day}. Make sure the timesheet entry is set up first.`);
       }
       
+      // Set up popup listener BEFORE clicking
+      const popupPromise = page.waitForEvent('popup', { timeout: 15000 });
+      
       await noteLink.click();
       
-      // Wait for popup to open with timeout
-      const popup = await page.waitForEvent('popup', { timeout: 10000 });
+      // Wait for popup to open
+      const popup = await popupPromise;
       
       // Wait for popup to be ready
       await popup.waitForLoadState('domcontentloaded');
@@ -318,7 +327,9 @@ const timecardClearDailyHours: MCPTool = {
       throw new Error('Browser page not available');
     }
 
-    const { day } = args;
+    // Ensure args is not null/undefined
+    const safeArgs = args || {};
+    const { day } = safeArgs;
 
     try {
       // Check if date is in current week when using YYYY-MM-DD format

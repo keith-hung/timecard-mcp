@@ -87,7 +87,9 @@ const timecardGetActivities: MCPTool = {
       throw new Error('Browser page not available');
     }
 
-    const { project_id } = args;
+    // Ensure args is not null/undefined
+    const safeArgs = args || {};
+    const { project_id } = safeArgs;
 
     try {
       // Navigate to timesheet page
@@ -152,7 +154,9 @@ const timecardGetTimesheet: MCPTool = {
       throw new Error('Browser page not available');
     }
 
-    const { date } = args;
+    // Ensure args is not null/undefined
+    const safeArgs = args || {};
+    const { date } = safeArgs;
 
     try {
       // Navigate to the specific week's timesheet

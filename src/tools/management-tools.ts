@@ -197,7 +197,9 @@ const timecardGetSummary: MCPTool = {
       throw new Error('Browser page not available');
     }
 
-    const { date } = args;
+    // Ensure args is not null/undefined
+    const safeArgs = args || {};
+    const { date } = safeArgs;
 
     try {
       // Navigate to the timesheet if needed
