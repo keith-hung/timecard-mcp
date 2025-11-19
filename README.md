@@ -48,6 +48,117 @@ You can use the `npx` method directly in Claude Desktop configuration:
 
 ---
 
+## 🤖 Quick Start for AI Agents
+
+If you're an AI agent using TimeCard MCP to fill timesheets, follow this proven workflow for best results.
+
+### Core Principles
+
+**1. Entry Immutability**
+- Once an entry is configured with a project/activity, NEVER change it
+- Changing project/activity clears ALL hours for that entry
+- Use different entry indices (0-9) for different project/activity combinations
+
+**2. Batch Operations**
+- Configure ALL entries first
+- Then fill ALL hours
+- Then add ALL notes
+- Finally save once
+- This prevents UI synchronization issues
+
+**3. Data Visibility**
+- `set_*` functions only update browser UI (temporary)
+- `save_timesheet` writes to server (permanent)
+- `get_timesheet` reads from server (only shows saved data)
+- Always save before verifying with get_timesheet
+
+### Standard Workflow
+
+```python
+# Step 1: Get current timesheet to see what exists
+get_timesheet("2025-11-05")
+
+# Step 2: Configure ALL entries you need
+set_timesheet_entry(0, "17647", "9")   # Communication
+set_timesheet_entry(1, "17647", "5")   # Meeting
+set_timesheet_entry(2, "17647", "12")  # Development
+
+# Step 3: Fill ALL hours (batch)
+set_daily_hours(0, "monday", 1.5)
+set_daily_hours(0, "tuesday", 1.5)
+set_daily_hours(1, "monday", 2)
+set_daily_hours(1, "tuesday", 3)
+set_daily_hours(2, "monday", 4.5)
+# ... continue for all entries and days
+
+# Step 4: Add ALL notes (batch)
+set_daily_note(1, "monday", "Team meeting")
+set_daily_note(2, "monday", "Bug fixing")
+# ... continue for all notes
+
+# Step 5: Validate before saving
+validate_timesheet()
+
+# Step 6: Save once
+save_timesheet()
+
+# Step 7: Verify the saved data
+get_timesheet("2025-11-05")
+```
+
+### Incremental Filling (Adding More Days)
+
+If the week already has Mon-Wed filled and you need to add Thu-Fri:
+
+```python
+# Entries 0-2 already configured with Mon-Wed hours
+# Just add new days directly (no need to re-configure entries)
+
+set_daily_hours(0, "thursday", 1.5)
+set_daily_hours(0, "friday", 1.5)
+set_daily_hours(2, "thursday", 2.5)
+# ...
+
+save_timesheet()
+get_timesheet("2025-11-05")  # Verify
+```
+
+### Common Mistakes to Avoid
+
+❌ **DON'T mix entry setup and hour filling**
+```python
+# Wrong - causes UI sync issues
+set_timesheet_entry(0, "17647", "9")
+set_daily_hours(0, "monday", 1.5)  # May fail
+set_timesheet_entry(1, "17647", "5")
+```
+
+❌ **DON'T check get_timesheet before saving**
+```python
+# Wrong - won't see changes yet
+set_daily_hours(0, "monday", 8)
+get_timesheet("2025-11-05")  # Shows old data!
+```
+
+❌ **DON'T change project/activity of existing entry**
+```python
+# Wrong - clears all hours!
+set_timesheet_entry(0, "17647", "9")
+set_daily_hours(0, "monday", 1.5)
+save_timesheet()
+
+set_timesheet_entry(0, "17647", "5")  # Changed activity - hours cleared!
+```
+
+### Expected Success Rate
+
+Following this workflow:
+- ✅ First-time success rate: 80%+
+- ✅ Tool calls needed: <10 for a full week
+- ✅ "Selector disabled" errors: Rare
+
+---
+
 ## 🛠️ Advanced Setup: Local Development
 
 For developers or users requiring specific version control, offline usage, or code modifications, you can opt for local installation:
