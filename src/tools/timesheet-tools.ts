@@ -26,7 +26,51 @@ function getDayIndex(day: string): number {
 
 const timecardSetTimesheetEntry: MCPTool = {
   name: 'timecard_set_timesheet_entry',
-  description: 'Set project and activity for a specific timesheet entry. IMPORTANT: This only updates the UI temporarily. You must call timecard_save_timesheet afterwards to permanently save changes. Use timecard_get_timesheet to see saved data.',
+  description: `Set project and activity for a specific timesheet entry.
+
+⚠️ CRITICAL PRINCIPLE: Entry Immutability
+Once an entry is configured with a project/activity, NEVER change it during the same week. Changing project OR activity will CLEAR ALL hours for that entry for the entire week. If you need a different project/activity combination, use a different entry index (0-9).
+
+⚠️ RECOMMENDED WORKFLOW: Batch Operations
+When filling multiple entries/days, use this order:
+1. FIRST: Configure ALL entries you need (call this tool for each entry 0-9)
+2. THEN: Set ALL hours using timecard_set_daily_hours (for all entries and days)
+3. NEXT: Set ALL notes using timecard_set_daily_note (if needed)
+4. FINALLY: Call timecard_save_timesheet ONCE
+5. VERIFY: Call timecard_get_timesheet to verify saved data
+
+WHY this order?
+- Prevents UI synchronization issues
+- More efficient (one save operation)
+- Clear, predictable workflow
+
+Example - CORRECT batch approach:
+  # Configure all entries first
+  set_timesheet_entry(0, "17647", "9")   # Communication
+  set_timesheet_entry(1, "17647", "5")   # Meeting
+  set_timesheet_entry(2, "17647", "12")  # Development
+
+  # Then fill all hours
+  set_daily_hours(0, "monday", 1.5)
+  set_daily_hours(1, "monday", 2)
+  set_daily_hours(2, "monday", 4.5)
+  # ... continue for all days
+
+  # Save once
+  save_timesheet()
+
+Example - WRONG approach (causes failures):
+  set_timesheet_entry(0, "17647", "9")
+  set_daily_hours(0, "monday", 1.5)  # May fail - UI not ready
+  set_timesheet_entry(1, "17647", "5")
+  set_daily_hours(1, "monday", 2)    # May fail - UI sync issues
+
+Incremental filling (adding more days):
+- If Entry 0-2 are already configured, you can directly add hours to new days
+- Only configure NEW entries (e.g., Entry 3, 4) if needed
+- No need to re-configure existing entries (though safe if same project/activity)
+
+IMPORTANT: This only updates the UI temporarily. You must call timecard_save_timesheet afterwards to permanently save changes. Use timecard_get_timesheet to see saved data.`,
   inputSchema: {
     type: 'object',
     properties: {
@@ -116,7 +160,18 @@ const timecardSetTimesheetEntry: MCPTool = {
       // Step 4: Select activity using the correct UID format
       await page.locator(`select[name="activity${entry_index}"]`).selectOption(activityUID);
 
-      // Step 5: Get the selected names for confirmation
+      // Step 5: Wait for hour selectors to become enabled
+      // This is crucial to prevent "selector disabled" errors when immediately calling set_daily_hours
+      await page.waitForFunction(
+        (idx) => {
+          const hourSelect = document.querySelector(`select[name="record${idx}_0"]`) as HTMLSelectElement;
+          return hourSelect && !hourSelect.disabled;
+        },
+        entry_index,
+        { timeout: 5000 }
+      );
+
+      // Step 6: Get the selected names for confirmation
       const projectName = await page.locator(`select[name="project${entry_index}"] option:checked`).textContent() || '';
       const activityName = await page.locator(`select[name="activity${entry_index}"] option:checked`).textContent() || '';
 
@@ -134,7 +189,57 @@ const timecardSetTimesheetEntry: MCPTool = {
 
 const timecardSetDailyHours: MCPTool = {
   name: 'timecard_set_daily_hours',
-  description: 'Set daily hours for a specific entry and day. Works only with the currently displayed week. For cross-week operations, use timecard_get_timesheet first to navigate to the target week. For clearing hours (setting to 0), consider using timecard_clear_daily_hours for better efficiency when clearing an entire day. IMPORTANT: To modify existing timesheet configurations for a day, you must first use timecard_clear_daily_hours to clear that day, then timecard_save_timesheet to save, then use this tool to set new hours, and timecard_save_timesheet again. This is required due to TimeCard system limitations where entries with existing hours cannot be directly modified. This only updates the UI temporarily. You must call timecard_save_timesheet afterwards to permanently save changes. Use timecard_get_timesheet to see saved data.',
+  description: `Set daily hours for a specific entry and day.
+
+⚠️ PREREQUISITES (Must do FIRST):
+- Project and activity MUST be set using timecard_set_timesheet_entry BEFORE calling this tool
+- If you get "hour selector is disabled" error, the entry is not configured yet
+
+⚠️ RECOMMENDED WORKFLOW: Batch Operations
+When filling multiple entries/days:
+1. Configure ALL entries FIRST (using timecard_set_timesheet_entry)
+2. Then set ALL hours in batch (using this tool)
+3. This approach prevents UI synchronization issues
+
+Example - CORRECT workflow:
+  # Step 1: Configure all entries
+  set_timesheet_entry(0, "17647", "9")
+  set_timesheet_entry(1, "17647", "5")
+  set_timesheet_entry(2, "17647", "12")
+
+  # Step 2: Fill all hours (batch)
+  set_daily_hours(0, "monday", 1.5)
+  set_daily_hours(0, "tuesday", 1.5)
+  set_daily_hours(1, "monday", 2)
+  set_daily_hours(1, "tuesday", 3)
+  set_daily_hours(2, "monday", 4.5)
+  # ... continue for all entries and days
+
+  # Step 3: Save
+  save_timesheet()
+
+Adding hours to NEW days on existing entries:
+- ✅ Safe: Directly add hours to days that don't have hours yet
+- ⚠️ Modify existing day: Must use timecard_clear_daily_hours first, then save, then re-fill
+
+Example - Adding Thursday/Friday to existing Mon-Wed data:
+  # Entries 0-2 already configured with Mon-Wed hours
+  # Just add new days directly (no clear needed)
+  set_daily_hours(0, "thursday", 1.5)
+  set_daily_hours(0, "friday", 1.5)
+  save_timesheet()
+
+Example - Modifying existing Monday hours:
+  # Must clear first
+  clear_daily_hours("monday")
+  save_timesheet()
+  # Then re-fill Monday
+  set_daily_hours(0, "monday", 2)  # New hours
+  save_timesheet()
+
+Works only with the currently displayed week. For cross-week operations, use timecard_get_timesheet first to navigate to the target week. For clearing hours (setting to 0), consider using timecard_clear_daily_hours for better efficiency when clearing an entire day.
+
+IMPORTANT: This only updates the UI temporarily. You must call timecard_save_timesheet afterwards to permanently save changes. Use timecard_get_timesheet to see saved data.`,
   inputSchema: {
     type: 'object',
     properties: {
@@ -219,7 +324,28 @@ const timecardSetDailyHours: MCPTool = {
 
 const timecardSetDailyNote: MCPTool = {
   name: 'timecard_set_daily_note',
-  description: 'Set daily note for a specific entry and day. Works only with the currently displayed week. For cross-week operations, use timecard_get_timesheet first to navigate to the target week. IMPORTANT: This only updates the UI temporarily. You must call timecard_save_timesheet afterwards to permanently save changes. Notes are not visible in timecard_get_timesheet until saved. WARNING: Note cannot contain special characters: #$%^&*=+{}[]|?\'"',
+  description: `Set daily note for a specific entry and day.
+
+⚠️ RECOMMENDED WORKFLOW: Batch Operations
+When setting notes for multiple entries/days:
+1. Configure ALL entries first (using timecard_set_timesheet_entry)
+2. Fill ALL hours (using timecard_set_daily_hours)
+3. Then set ALL notes in batch (using this tool)
+4. Save once (using timecard_save_timesheet)
+
+Example:
+  # After configuring entries and filling hours...
+  set_daily_note(0, "monday", "Team meeting")
+  set_daily_note(1, "monday", "Code review")
+  set_daily_note(2, "tuesday", "Bug fixing")
+  # ... continue for all notes
+  save_timesheet()
+
+Works only with the currently displayed week. For cross-week operations, use timecard_get_timesheet first to navigate to the target week.
+
+IMPORTANT: This only updates the UI temporarily. You must call timecard_save_timesheet afterwards to permanently save changes. Notes are not visible in timecard_get_timesheet until saved.
+
+WARNING: Note cannot contain special characters: #$%^&*=+{}[]|?\'"`,
   inputSchema: {
     type: 'object',
     properties: {
