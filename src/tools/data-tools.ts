@@ -32,26 +32,46 @@ const timecardGetProjects: MCPTool = {
     }
 
     try {
-      // Navigate to timesheet page to access project dropdown
+      // Navigate to timesheet page to access JavaScript source
       const today = new Date().toISOString().split('T')[0];
       await session.navigateToTimesheet(today);
 
-      // Get all project options from the first project dropdown
-      const projectOptions = await page.locator('select[name="project0"] option').all();
-      const projects: Project[] = [];
-
-      for (const option of projectOptions) {
-        const value = await option.getAttribute('value');
-        const text = await option.textContent();
-        
-        if (value && text && value !== '' && text.trim() !== '') {
-          projects.push({
-            id: value,
-            name: text.trim(),
-            description: text.trim()
-          });
+      // Extract project data directly from the 'act' object in browser context
+      const projectsData = await page.evaluate(() => {
+        // @ts-ignore - act is a global variable in the browser context
+        if (typeof act === 'undefined' || !act.collect) {
+          return null;
         }
+
+        const projectMap = new Map();
+        // @ts-ignore - act is a global variable in the browser context
+        for (let i = 0; i <= act.cnt; i++) {
+          // @ts-ignore - act is a global variable in the browser context
+          const item = act.collect[i];
+          if (!item) continue;
+
+          // Only process top-level projects (is_bottom = false and no leading spaces)
+          if (item.bottom === 'false' && !item.name.startsWith(' ')) {
+            const cleanName = item.name.replace(/<<.*?>>/, '').trim();
+
+            if (!projectMap.has(item.pid)) {
+              projectMap.set(item.pid, {
+                id: item.pid,
+                name: cleanName,
+                description: cleanName
+              });
+            }
+          }
+        }
+
+        return Array.from(projectMap.values());
+      });
+
+      if (!projectsData) {
+        throw new Error('Could not access act object in browser context');
       }
+
+      const projects = projectsData;
 
       return {
         projects,
@@ -92,37 +112,48 @@ const timecardGetActivities: MCPTool = {
     const { project_id } = safeArgs;
 
     try {
-      // Navigate to timesheet page
+      // Navigate to timesheet page to access JavaScript source
       const today = new Date().toISOString().split('T')[0];
       await session.navigateToTimesheet(today);
 
-      // Select the project to populate activities
-      await page.locator('select[name="project0"]').selectOption(project_id);
-      
-      // Wait for activities to load
-      await page.waitForTimeout(1000);
-
-      // Get all activity options
-      const activityOptions = await page.locator('select[name="activity0"] option').all();
-      const activities: Activity[] = [];
-
-      for (const option of activityOptions) {
-        const value = await option.getAttribute('value');
-        const text = await option.textContent();
-        
-        if (value && text && value !== '' && text.trim() !== '') {
-          activities.push({
-            id: value,
-            name: text.trim(),
-            description: text.trim()
-          });
+      // Extract activities data directly from the 'act' object in browser context
+      const activitiesData = await page.evaluate((projectId) => {
+        // @ts-ignore - act is a global variable in the browser context
+        if (typeof act === 'undefined' || !act.collect) {
+          return null;
         }
+
+        const activities = [];
+        // @ts-ignore - act is a global variable in the browser context
+        for (let i = 0; i <= act.cnt; i++) {
+          // @ts-ignore - act is a global variable in the browser context
+          const item = act.collect[i];
+          if (!item) continue;
+
+          // Only process activities for the specified project
+          // Activities are marked with is_bottom = 'true'
+          if (item.pid === projectId && item.bottom === 'true') {
+            const cleanName = item.name.replace(/<<.*?>>/, '').trim();
+
+            activities.push({
+              id: item.uid,
+              name: cleanName,
+              description: cleanName
+            });
+          }
+        }
+
+        return activities;
+      }, project_id);
+
+      if (!activitiesData) {
+        throw new Error('Could not access act object in browser context');
       }
 
       return {
         project_id,
-        activities,
-        count: activities.length
+        activities: activitiesData,
+        count: activitiesData.length
       };
     } catch (error) {
       throw new Error(`Failed to get activities for project ${project_id}: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -233,8 +264,57 @@ const timecardGetTimesheet: MCPTool = {
   }
 };
 
+const timecardDebugPageContent: MCPTool = {
+  name: 'timecard_debug_page_content',
+  description: 'Debug tool to check page content',
+  inputSchema: {
+    type: 'object',
+    properties: {}
+  },
+  handler: async (args, session: TimeCardSession) => {
+    const authResult = await session.ensureAuthenticated();
+    if (!authResult.success) {
+      throw new Error(authResult.message);
+    }
+
+    const page = session.getPage();
+    if (!page) {
+      throw new Error('Browser page not available');
+    }
+
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      await session.navigateToTimesheet(today);
+
+      const htmlContent = await page.content();
+
+      // Check if act.append exists in raw HTML
+      const hasActAppend = htmlContent.includes('act.append');
+
+      // Get first 1000 chars of each script
+      const scriptRegex = /<script[^>]*>([\s\S]*?)<\/script>/g;
+      const scripts = [...htmlContent.matchAll(scriptRegex)];
+
+      const scriptInfo = scripts.map((s, idx) => ({
+        index: idx,
+        hasActAppend: s[1].includes('act.append'),
+        preview: s[1].substring(0, 200)
+      }));
+
+      return {
+        hasActAppend,
+        totalScripts: scripts.length,
+        scripts: scriptInfo
+      };
+    } catch (error) {
+      throw new Error(`Debug failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+};
+
 export const dataTools: MCPTool[] = [
   timecardGetProjects,
   timecardGetActivities,
-  timecardGetTimesheet
+  timecardGetTimesheet,
+  timecardDebugPageContent
 ];

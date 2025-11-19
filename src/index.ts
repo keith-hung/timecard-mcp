@@ -84,16 +84,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error('TimeCard MCP server running on stdio');
 }
 
 // Cleanup on exit
 async function cleanup() {
-  console.error('Cleaning up TimeCard session...');
   try {
     await timecardSession.closeBrowser();
   } catch (error) {
-    console.error('Error during cleanup:', error);
+    // Silently ignore cleanup errors
   }
 }
 
@@ -111,8 +109,7 @@ process.on('beforeExit', async () => {
   await cleanup();
 });
 
-main().catch(async (error) => {
-  console.error('Failed to start server:', error);
+main().catch(async () => {
   await cleanup();
   process.exit(1);
 });

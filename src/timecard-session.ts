@@ -7,6 +7,13 @@ export interface TimeCardSessionInfo {
   currentUrl?: string;
 }
 
+export interface ErrorInfo {
+  isError: true;
+  mainMessage: string;
+  exceptionType: string;
+  exceptionMessage: string;
+}
+
 export class TimeCardSession {
   private browser: Browser | null = null;
   private context: BrowserContext | null = null;
@@ -48,19 +55,30 @@ export class TimeCardSession {
       await this.page.goto(this.baseUrl);
       await this.page.locator('input[name="name"]').fill(username);
       await this.page.locator('input[name="pw"]').fill(password);
-      await this.page.getByRole('button', { name: 'Submit' }).click();
+      // The form structure is broken - input fields are outside the form tag
+      // Click the submit image button directly
+      await this.page.locator('input[type="image"][name="Image12"]').click();
 
       // Wait for navigation and check if login was successful
       await this.page.waitForLoadState('networkidle');
-      
+
+      // Check for error page
+      const errorInfo = await this.checkForErrorPage();
+      if (errorInfo) {
+        return {
+          success: false,
+          message: `Login failed: ${errorInfo.mainMessage}\nException: ${errorInfo.exceptionMessage}`
+        };
+      }
+
       const currentUrl = this.page.url();
       const isLoginPage = currentUrl.includes('login') || currentUrl === this.baseUrl;
-      
+
       if (isLoginPage) {
         // Check for error messages
         const errorElement = await this.page.locator('.error, .alert, [class*="error"]').first();
         const errorText = await errorElement.textContent().catch(() => null);
-        
+
         return {
           success: false,
           message: errorText || 'Login failed - invalid credentials'
@@ -130,7 +148,7 @@ export class TimeCardSession {
       }
       this.page = null;
     } catch (error) {
-      console.error('Error closing browser:', error);
+      // Silently ignore cleanup errors
     }
   }
 
@@ -153,7 +171,6 @@ export class TimeCardSession {
       const maxSessionAge = 10 * 60 * 1000; // 10 minutes
       
       if (sessionAge > maxSessionAge) {
-        console.error('Session is older than 10 minutes, forcing re-authentication');
         await this.closeBrowser();
         this.sessionInfo = { authenticated: false };
       }
@@ -163,7 +180,6 @@ export class TimeCardSession {
     if (this.sessionInfo.authenticated) {
       // Check browser connection
       if (!this.browser || !this.browser.isConnected()) {
-        console.error('Browser is not connected, forcing re-authentication');
         await this.closeBrowser();
         this.sessionInfo = { authenticated: false };
       } else {
@@ -173,12 +189,10 @@ export class TimeCardSession {
             await this.page.evaluate('1+1', { timeout: 3000 });
             return { success: true, message: 'Session verified' };
           } else {
-            console.error('Page is closed, forcing re-authentication');
             await this.closeBrowser();
             this.sessionInfo = { authenticated: false };
           }
         } catch (error) {
-          console.error('Browser/page is not responsive, forcing re-authentication');
           await this.closeBrowser();
           this.sessionInfo = { authenticated: false };
         }
@@ -203,6 +217,53 @@ export class TimeCardSession {
     return await this.login(username, password);
   }
 
+  async checkForErrorPage(): Promise<ErrorInfo | null> {
+    if (!this.page) return null;
+
+    const currentUrl = this.page.url();
+    if (!currentUrl.includes('/errorMsg/error.jsp')) {
+      return null;
+    }
+
+    const errorInfo = await this.page.evaluate(() => {
+      const title = document.querySelector('p[align="center"] font[color="red"]')?.textContent;
+      if (title !== 'Error Page') {
+        return null;
+      }
+
+      const rows = Array.from(document.querySelectorAll('table[align="center"] tr'));
+
+      let mainMessage = '';
+      let exceptionType = '';
+      let exceptionMessage = '';
+
+      for (const row of rows) {
+        const cells = row.querySelectorAll('td');
+        if (cells.length >= 2) {
+          const label = cells[0].textContent?.trim();
+          const value = cells[1]?.textContent?.trim();
+
+          if (label === 'Exception Type:') {
+            exceptionType = value || '';
+          } else if (label === 'Exception Message:') {
+            exceptionMessage = value || '';
+          } else if (cells[0].querySelector('b')) {
+            mainMessage = cells[0].textContent?.trim() || '';
+          }
+        }
+      }
+
+      return {
+        isError: true as const,
+        mainMessage,
+        exceptionType,
+        exceptionMessage
+      };
+    });
+
+    return errorInfo;
+  }
+
   async navigateToTimesheet(date: string): Promise<void> {
     if (!this.page || !this.sessionInfo.authenticated) {
       throw new Error('Not authenticated or page not available');
@@ -211,6 +272,12 @@ export class TimeCardSession {
     const timesheetUrl = `${this.baseUrl}Timecard/timecard_week/daychoose.jsp?cho_date=${date}`;
     await this.page.goto(timesheetUrl);
     await this.page.waitForLoadState('networkidle');
+
+    // Check if redirected to error page
+    const errorInfo = await this.checkForErrorPage();
+    if (errorInfo) {
+      throw new Error(`TimeCard Error: ${errorInfo.mainMessage}\nException: ${errorInfo.exceptionMessage}`);
+    }
   }
 
   async waitForElement(selector: string, timeout: number = 5000): Promise<boolean> {

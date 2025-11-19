@@ -1,26 +1,26 @@
 # TimeCard MCP
 
-A Model Context Protocol (MCP) implementation for automating timesheet management tasks using Playwright.
+A Model Context Protocol (MCP) server for automating TimeCard timesheet management using Playwright browser automation.
 
 ---
 
-## 🚀 快速開始 (Quick Start)
+## 🚀 Quick Start
 
-推薦使用 `npx` 方式執行 TimeCard MCP 伺服器，這樣可以自動獲取最新版本且無需手動維護 (需要 Node.js v18+)。
+**Recommended:** Use `npx` to run the TimeCard MCP server. This approach automatically fetches the latest version without manual maintenance (requires Node.js v18+).
 
 ```bash
-# 1. 設定環境變數 (請替換為您的實際憑證)
+# 1. Set environment variables (replace with your actual credentials)
 export TIMECARD_USERNAME="your_username"
 export TIMECARD_PASSWORD="your_password"
 export TIMECARD_BASE_URL="http://your-timecard-server/app/"
 
-# 2. 執行伺服器
+# 2. Run the server
 npx git+https://github.com/keith-hung/timecard-mcp.git
 ```
 
-### 與 Claude Desktop 整合
+### Claude Desktop Integration
 
-您可以直接在 Claude Desktop 配置中使用 `npx` 方式：
+You can use the `npx` method directly in Claude Desktop configuration:
 
 ```json
 {
@@ -38,35 +38,35 @@ npx git+https://github.com/keith-hung/timecard-mcp.git
 }
 ```
 
-**優點：**
-*   自動保持最新版本
-*   無需手動安裝和建置
-*   配置簡潔
-*   npx 會快取已下載的套件，不會每次都重新下載
+**Benefits:**
+* Automatically stays up-to-date
+* No manual installation or build required
+* Simple configuration
+* npx caches downloaded packages - won't re-download every time
 
-**注意：** 請確保您的 `TIMECARD_BASE_URL` 包含應用程式路徑 (例如：`http://your-timecard-server/app/`)。
+**Note:** Ensure your `TIMECARD_BASE_URL` includes the application path (e.g., `http://your-timecard-server/app/`).
 
 ---
 
-## 🛠️ 進階設定：本地開發 (Advanced Setup: Local Development)
+## 🛠️ Advanced Setup: Local Development
 
-如果您是開發者或需要特定版本控制、離線使用、或進行程式碼修改，可以選擇本地安裝：
+For developers or users requiring specific version control, offline usage, or code modifications, you can opt for local installation:
 
-### 1. 本地設定
+### 1. Local Setup
 
 ```bash
-# 1. 複製倉庫
-git clone https://github.com/your-org/timecard-mcp.git
+# 1. Clone the repository
+git clone https://github.com/keith-hung/timecard-mcp.git
 cd timecard-mcp
 
-# 2. 安裝依賴並建置專案
+# 2. Install dependencies and build
 npm install
 npm run build
 ```
 
-### 2. 設定環境變數
+### 2. Environment Configuration
 
-伺服器需要以下環境變數才能連接到您的 TimeCard 系統。您可以在專案根目錄建立 `.env` 檔案，或在您的 shell 中設定它們：
+The server requires the following environment variables to connect to your TimeCard system. You can create a `.env` file in the project root or set them in your shell:
 
 ```bash
 export TIMECARD_USERNAME="your_username"
@@ -74,9 +74,9 @@ export TIMECARD_PASSWORD="your_password"
 export TIMECARD_BASE_URL="http://your-timecard-server/app/"
 ```
 
-### 3. 新增至 Claude Desktop (本地版本)
+### 3. Add to Claude Desktop (Local Version)
 
-編輯您的 `~/Library/Application Support/Claude/claude_desktop_config.json` 檔案：
+Edit your `~/Library/Application Support/Claude/claude_desktop_config.json` file:
 
 ```json
 {
@@ -93,24 +93,51 @@ export TIMECARD_BASE_URL="http://your-timecard-server/app/"
   }
 }
 ```
-**注意：** 請將 `/absolute/path/to/timecard-mcp/` 替換為您複製此倉庫的實際路徑。
+**Note:** Replace `/absolute/path/to/timecard-mcp/` with the actual path where you cloned this repository.
 
-**本地安裝的適用情況：**
-*   需要修改或擴展程式碼
-*   需要特定版本控制
-*   完全離線環境
-*   開發和調試需求
+**When to use local installation:**
+* Code modification or extension required
+* Specific version control needs
+* Fully offline environment
+* Development and debugging requirements
 
-### 4. 重新啟動 Claude Desktop
+### 4. Restart Claude Desktop
 
-設定完成後，重新啟動 Claude Desktop。您現在應該會看到 TimeCard 工具可用了！
+After configuration, restart Claude Desktop. You should now see TimeCard tools available!
 
 ---
 
-## 📚 更多文件 (Additional Documentation)
+## 📚 Documentation
 
-- **[FEATURES.md](./docs/FEATURES.md)** - 詳細說明所有可用的 MCP 工具、其參數、回傳值和使用範例。
-- **[DEVELOPMENT.md](./docs/DEVELOPMENT.md)** - 供希望了解、修改或擴展 TimeCard MCP 的開發人員參考的指南。
+- **[FEATURES.md](./docs/FEATURES.md)** - Detailed documentation of all available MCP tools, parameters, return values, and usage examples
+- **[DEVELOPMENT.md](./docs/DEVELOPMENT.md)** - Developer guide for understanding, modifying, or extending TimeCard MCP
+
+## 🔧 Available Tools
+
+The TimeCard MCP server provides 13 tools organized into 4 categories:
+
+### Authentication
+- `timecard_login` - Login to TimeCard system
+- `timecard_logout` - Logout from TimeCard system
+- `timecard_check_session` - Check current session status
+
+### Data Retrieval
+- `timecard_get_projects` - Get available projects
+- `timecard_get_activities` - Get activities for a project
+- `timecard_get_timesheet` - Get timesheet data for a week
+
+### Timesheet Operations
+- `timecard_set_timesheet_entry` - Set project and activity for an entry
+- `timecard_set_daily_hours` - Set hours for a specific day
+- `timecard_set_daily_note` - Set note for a specific day
+- `timecard_clear_daily_hours` - Clear all hours for a specific day
+
+### Management
+- `timecard_save_timesheet` - Save timesheet changes permanently
+- `timecard_validate_timesheet` - Validate timesheet for errors
+- `timecard_get_summary` - Get timesheet summary statistics
+
+See [FEATURES.md](./docs/FEATURES.md) for detailed usage.
 
 ## License
 
