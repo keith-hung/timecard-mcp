@@ -67,24 +67,64 @@ const timecardSetTimesheetEntry: MCPTool = {
     }
 
     try {
-      // Select project
-      await page.locator(`select[name="project${entry_index}"]`).selectOption(project_id);
-      
-      // Wait for activity dropdown to populate
-      await page.waitForTimeout(1000);
-      
-      // Select activity
-      await page.locator(`select[name="activity${entry_index}"]`).selectOption(activity_id);
+      // Step 1: Get the correct activity UID from the act object
+      const activityUID = await page.evaluate((args: { projectId: string; activityId: string }) => {
+        // @ts-ignore - act is a global variable in the browser context
+        if (typeof act === 'undefined' || !act.collect) {
+          return null;
+        }
 
-      // Get the selected names for confirmation
+        // Find the activity with matching project ID and activity ID
+        // Activities have bottom = 'true'
+        // @ts-ignore
+        for (let i = 0; i <= act.cnt; i++) {
+          // @ts-ignore
+          const item = act.collect[i];
+          if (item && item.pid === args.projectId && item.uid === args.activityId && item.bottom === 'true') {
+            // Return the formatted UID: true$uid$pid$0
+            return `true$${item.uid}$${item.pid}$0`;
+          }
+        }
+
+        return null;
+      }, { projectId: project_id, activityId: activity_id });
+
+      if (!activityUID) {
+        throw new Error(`Could not find activity with ID "${activity_id}" for project "${project_id}"`);
+      }
+
+      // Step 2: Select project
+      await page.locator(`select[name="project${entry_index}"]`).selectOption(project_id);
+
+      // Step 3: Wait for activity dropdown to populate with actual options
+      await page.waitForFunction(
+        (idx) => {
+          const select = document.querySelector(`select[name="activity${idx}"]`) as HTMLSelectElement;
+          if (!select) return false;
+
+          // Count non-empty options (exclude the "-- select activity --" option)
+          const validOptions = Array.from(select.options).filter(opt =>
+            opt.value !== '' && opt.value !== 'false$-1$-1$0'
+          );
+
+          return validOptions.length > 0;
+        },
+        entry_index,
+        { timeout: 10000 }
+      );
+
+      // Step 4: Select activity using the correct UID format
+      await page.locator(`select[name="activity${entry_index}"]`).selectOption(activityUID);
+
+      // Step 5: Get the selected names for confirmation
       const projectName = await page.locator(`select[name="project${entry_index}"] option:checked`).textContent() || '';
       const activityName = await page.locator(`select[name="activity${entry_index}"] option:checked`).textContent() || '';
 
       return {
         success: true,
         entry_index,
-        project_name: projectName.trim(),
-        activity_name: activityName.trim()
+        project_name: projectName.trim().replace(/<<.*?>>/, '').trim(),
+        activity_name: activityName.trim().replace(/<<.*?>>/, '').trim()
       };
     } catch (error) {
       throw new Error(`Failed to set timesheet entry ${entry_index}: ${error instanceof Error ? error.message : 'Unknown error'}`);
