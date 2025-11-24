@@ -7,11 +7,12 @@ import {
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import { TimeCardSession } from './timecard-session.js';
-import { 
+import {
   authTools,
   timesheetTools,
   dataTools,
-  managementTools 
+  managementTools,
+  batchOperationTools
 } from './tools/index.js';
 
 const server = new Server(
@@ -35,6 +36,7 @@ const allTools = [
   ...timesheetTools,
   ...dataTools,
   ...managementTools,
+  ...batchOperationTools,
 ];
 
 server.setRequestHandler(ListToolsRequestSchema, async () => {
