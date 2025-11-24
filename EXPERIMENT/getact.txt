@@ -1,0 +1,68 @@
+curl 'http://tcrs.cybersoft.tw/TCRS/Timecard/timecard_week/daychoose.jsp?cho_date=2025-09-01' \
+  -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7' \
+  -H 'Accept-Language: en-US,en;q=0.9,zh-TW;q=0.8,zh;q=0.7' \
+  -H 'Cache-Control: no-cache' \
+  -H 'Connection: keep-alive' \
+  -b 'JSESSIONID=202F2C8F9B9DA7FC470EDA8779F6AE1A' \
+  -H 'DNT: 1' \
+  -H 'Pragma: no-cache' \
+  -H 'Referer: http://tcrs.cybersoft.tw/TCRS/Timecard/timecard_week/daychoose.jsp' \
+  -H 'Upgrade-Insecure-Requests: 1' \
+  -H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36' \
+  --insecure
+
+  act.append('17647','2025_DIL <<1>>','false','1','0');
+act.append('17647','  General <<1.1>>','false','2','0');
+act.append('17647','    學習成長 <<1.1.1>>','true','3','0');
+act.append('17647','    服務支援 <<1.1.2>>','true','4','0');
+act.append('17647','    會議 <<1.1.3>>','true','5','0');
+act.append('17647','    休假 <<1.1.4>>','true','6','0');
+act.append('17647','    公司活動 <<1.1.5>>','true','7','0');
+act.append('17647','    行政庶務 <<1.1.6>>','true','8','0');
+act.append('17647','    溝通協調 <<1.1.7>>','true','9','0');
+act.append('17647','    專案管理 <<1.1.8>>','true','10','0');
+act.append('17647','    研究技術 <<1.1.9>>','true','11','0');
+act.append('17647','    開發 <<1.1.10>>','true','12','0');
+act.append('17647','    測試 <<1.1.11>>','true','13','0');
+act.append('17647','    上版及佈署 <<1.1.12>>','true','14','0');
+act.append('17647','    維運 <<1.1.13>>','true','15','0');
+act.append('17647','    文件 <<1.1.14>>','true','16','0');
+act.append('17525','Ai點數腦 <<1>>','false','1','0');
+act.append('17525','  US需求檢視討論及確認 <<1.1>>','true','19','0');
+act.append('17525','  UIUX 使用者體驗與介面設計 <<1.2>>','true','18','0');
+act.append('17525','  PM 專案管理 <<1.3>>','true','17','0');
+act.append('17525','  SA 系統分析 <<1.4>>','true','16','0');
+act.append('17525','  SD 系統設計 <<1.5>>','true','15','0');
+act.append('17525','  PG 程式開發 <<1.6>>','true','14','0');
+act.append('17525','  SIT 系統整合測試 <<1.7>>','true','13','0');
+act.append('17525','  UAT使用者驗證測試 <<1.8>>','true','12','0');
+act.append('17525','  上線準備及作業 <<1.9>>','true','11','0');
+act.append('17525','  文件與記錄 <<1.10>>','true','10','0');
+act.append('17525','  平台維運及(監測) <<1.11>>','true','9','0');
+act.append('17525','  Bug調查與修復 <<1.12>>','true','8','0');
+act.append('17525','  技術研究 <<1.13>>','true','7','0');
+act.append('17525','  Internal Meeting 內部會議 <<1.14>>','true','6','0');
+act.append('17525','  External Meeting 外部會議 <<1.15>>','true','5','0');
+act.append('17525','  Pre-sale 支援 <<1.16>>','true','4','0');
+act.append('17525','  支援其他專案開發 <<1.17>>','true','3','0');
+act.append('17525','  支援其他專案維運 <<1.18>>','true','2','0');
+act.append('17570','CYS-會員點數忠誠度行銷系統研發 <<1>>','false','1','0');
+act.append('17570','  Pre-sale 支援 (支援業務銷售工作、可行性方案研究) <<1.1>>','true','2','0');
+act.append('17570','  PM 專案管理 (專案計畫、專案監控、溝通協調) <<1.2>>','true','3','0');
+act.append('17570','  SA 系統分析 (需求蒐集、系統分析、UCM撰寫) <<1.3>>','true','4','0');
+act.append('17570','  SD 系統設計 (架構設計、系統設計、資料庫設計) <<1.4>>','true','5','0');
+act.append('17570','  PG 程式開發 (程式撰寫、單元測試) <<1.5>>','true','6','0');
+act.append('17570','  SIT 系統整合測試 (FT、SIT測試及Debug工作) <<1.6>>','true','7','0');
+act.append('17570','  UAT使用者驗證測試 (User驗證及Debug工作) <<1.7>>','true','8','0');
+act.append('17570','  Internal Meeting 內部會議 (專案例會、技術會議、議題討論) <<1.8>>','true','9','0');
+act.append('17570','  External Meeting 外部會議 (專案例會、需求討論、技術會議、議題討論) <<1.9>>','true','10','0');
+act.append('17615','數位創新補助平台計畫-聚焦休閒娛樂微型商家之「AI點數互動平台」-研發 <<1>>','false','1','0');
+act.append('17615','  Pre-sale 支援 (支援業務銷售工作、可行性方案研究) <<1.1>>','true','2','0');
+act.append('17615','  PM 專案管理 (專案計畫、專案監控、溝通協調) <<1.2>>','true','3','0');
+act.append('17615','  SA 系統分析 (需求蒐集、系統分析、UCM撰寫) <<1.3>>','true','4','0');
+act.append('17615','  SD 系統設計 (架構設計、系統設計、資料庫設計) <<1.4>>','true','5','0');
+act.append('17615','  PG 程式開發 (程式撰寫、單元測試) <<1.5>>','true','6','0');
+act.append('17615','  SIT 系統整合測試 (FT、SIT測試及Debug工作) <<1.6>>','true','7','0');
+act.append('17615','  UAT使用者驗證測試 (User驗證及Debug工作) <<1.7>>','true','8','0');
+act.append('17615','  Internal Meeting 內部會議 (專案例會、技術會議、議題討論) <<1.8>>','true','9','0');
+act.append('17615','  External Meeting 外部會議 (專案例會、需求討論、技術會議、議題討論) <<1.9>>','true','10','0');
