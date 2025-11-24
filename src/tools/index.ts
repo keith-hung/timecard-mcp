@@ -16,3 +16,4 @@ export { authTools } from './auth-tools.js';
 export { timesheetTools } from './timesheet-tools.js';
 export { dataTools } from './data-tools.js';
 export { managementTools } from './management-tools.js';
+export { batchOperationTools } from './batch-operations.js';

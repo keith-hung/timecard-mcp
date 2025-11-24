@@ -21,6 +21,7 @@ export class TimeCardSession {
   private context: BrowserContext | null = null;
   private page: Page | null = null;
   private sessionInfo: TimeCardSessionInfo = { authenticated: false };
+  private pendingFormUpdates: Map<string, string> = new Map();
 
   private readonly baseUrl: string;
   private readonly sessionStatePath: string;
@@ -418,19 +419,189 @@ export class TimeCardSession {
       // For a more accurate check, use getCurrentWeekRange() but that's async
       const targetDate = new Date(date);
       const today = new Date();
-      
+
       // Calculate Monday of current week
       const dayOfWeek = today.getDay();
       const mondayDate = new Date(today);
       mondayDate.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
-      
+
       // Calculate Saturday of current week
       const saturdayDate = new Date(mondayDate);
       saturdayDate.setDate(mondayDate.getDate() + 5);
-      
+
       return targetDate >= mondayDate && targetDate <= saturdayDate;
     } catch {
       return false;
+    }
+  }
+
+  // ========== Batch Operations (Performance Optimization) ==========
+
+  /**
+   * Get current form state from the timesheet page.
+   * This reads all form fields to prepare for direct POST submission.
+   */
+  async getCurrentFormState(): Promise<Record<string, string>> {
+    if (!this.page || !this.sessionInfo.authenticated) {
+      throw new Error('Not authenticated or page not available');
+    }
+
+    try {
+      const formData = await this.page.evaluate(() => {
+        const form = document.forms.namedItem('weekly_info');
+        if (!form) {
+          throw new Error('Form "weekly_info" not found on page');
+        }
+
+        const data: Record<string, string> = {};
+
+        // Serialize all form elements
+        for (let i = 0; i < form.elements.length; i++) {
+          const element = form.elements[i] as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+          if (element.name) {
+            // Get value based on element type
+            if (element instanceof HTMLSelectElement) {
+              data[element.name] = element.value || '';
+            } else if (element instanceof HTMLInputElement) {
+              if (element.type === 'checkbox' || element.type === 'radio') {
+                if (element.checked) {
+                  data[element.name] = element.value || 'on';
+                }
+              } else {
+                data[element.name] = element.value || '';
+              }
+            } else if (element instanceof HTMLTextAreaElement) {
+              data[element.name] = element.value || '';
+            }
+          }
+        }
+
+        return data;
+      });
+
+      console.log(`[Batch] Retrieved ${Object.keys(formData).length} form fields`);
+      return formData;
+    } catch (error) {
+      throw new Error(`Failed to get current form state: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Queue a form field update for batch submission.
+   * Updates are accumulated in memory and submitted together with batchSave().
+   */
+  queueFormUpdate(fieldName: string, value: string): void {
+    this.pendingFormUpdates.set(fieldName, value);
+    console.log(`[Batch] Queued update: ${fieldName} = ${value.substring(0, 50)}${value.length > 50 ? '...' : ''}`);
+  }
+
+  /**
+   * Get the number of pending updates.
+   */
+  getPendingUpdateCount(): number {
+    return this.pendingFormUpdates.size;
+  }
+
+  /**
+   * Clear all pending updates without submitting.
+   */
+  clearPendingUpdates(): void {
+    this.pendingFormUpdates.clear();
+    console.log('[Batch] Cleared all pending updates');
+  }
+
+  /**
+   * Submit all pending updates via direct form POST.
+   * This bypasses UI operations and directly submits to weekinfo_deal.jsp.
+   */
+  async batchSave(action: 'save' | 'submit' = 'save'): Promise<{ success: boolean; message: string }> {
+    if (!this.page || !this.sessionInfo.authenticated) {
+      throw new Error('Not authenticated or page not available');
+    }
+
+    if (this.pendingFormUpdates.size === 0) {
+      return {
+        success: true,
+        message: 'No pending updates to save'
+      };
+    }
+
+    try {
+      console.log(`[Batch] Starting batch ${action} with ${this.pendingFormUpdates.size} pending updates`);
+
+      // 1. Get current form state
+      const baseFormData = await this.getCurrentFormState();
+
+      // 2. Apply pending updates
+      for (const [key, value] of this.pendingFormUpdates) {
+        baseFormData[key] = value;
+      }
+
+      // 3. Add action button
+      if (action === 'save') {
+        baseFormData['save'] = ' save ';
+      } else {
+        baseFormData['submit'] = 'submit';
+      }
+
+      // 4. POST to weekinfo_deal.jsp
+      const targetUrl = `${this.baseUrl}Timecard/timecard_week/weekinfo_deal.jsp`;
+      console.log(`[Batch] POSTing to ${targetUrl}`);
+
+      const response = await this.page.request.post(targetUrl, {
+        form: baseFormData
+        // Note: Playwright's request API doesn't have followRedirects option
+        // It automatically returns redirect status codes without following
+      });
+
+      // 5. Check response
+      const status = response.status();
+      console.log(`[Batch] Response status: ${status}`);
+
+      if (status === 302 || status === 301) {
+        // Redirect means success
+        const redirectUrl = response.headers()['location'];
+        console.log(`[Batch] Success - redirecting to ${redirectUrl}`);
+
+        // Navigate to the redirected page to update page state
+        if (redirectUrl) {
+          const fullRedirectUrl = redirectUrl.startsWith('http')
+            ? redirectUrl
+            : `${this.baseUrl}Timecard/timecard_week/${redirectUrl}`;
+          await this.page.goto(fullRedirectUrl);
+          await this.page.waitForLoadState('networkidle');
+        }
+
+        // Clear pending updates after successful save
+        const savedCount = this.pendingFormUpdates.size;
+        this.clearPendingUpdates();
+
+        return {
+          success: true,
+          message: `Batch ${action} successful - saved ${savedCount} updates`
+        };
+      } else if (status === 200) {
+        // Check if there's an error on the page
+        const pageContent = await response.text();
+        if (pageContent.includes('error') || pageContent.includes('Error')) {
+          throw new Error('Server returned error page');
+        }
+
+        // 200 might be success too, clear pending updates
+        const savedCount = this.pendingFormUpdates.size;
+        this.clearPendingUpdates();
+
+        return {
+          success: true,
+          message: `Batch ${action} completed - saved ${savedCount} updates`
+        };
+      } else {
+        throw new Error(`Unexpected response status: ${status}`);
+      }
+    } catch (error) {
+      const errorMsg = `Batch ${action} failed: ${error instanceof Error ? error.message : 'Unknown error'}`;
+      console.error(`[Batch] ${errorMsg}`);
+      throw new Error(errorMsg);
     }
   }
 }
