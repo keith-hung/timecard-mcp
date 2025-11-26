@@ -29,8 +29,8 @@ export TIMECARD_USERNAME="your_username"
 export TIMECARD_PASSWORD="your_password"
 export TIMECARD_BASE_URL="http://your-timecard-server/app/"
 
-# 2. Run the server
-npx git+https://github.com/keith-hung/timecard-mcp.git
+# 2. Run the server (v2-batch-operations branch)
+npx git+https://github.com/keith-hung/timecard-mcp.git#v2-batch-operations
 ```
 
 ### Claude Desktop Integration
@@ -42,7 +42,7 @@ You can use the `npx` method directly in Claude Desktop configuration:
   "mcpServers": {
     "timecard": {
       "command": "npx",
-      "args": ["git+https://github.com/keith-hung/timecard-mcp.git"],
+      "args": ["git+https://github.com/keith-hung/timecard-mcp.git#v2-batch-operations"],
       "env": {
         "TIMECARD_USERNAME": "your_username",
         "TIMECARD_PASSWORD": "your_password",
