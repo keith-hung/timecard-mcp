@@ -168,33 +168,33 @@ const timecardGetTimesheet: MCPTool = {
 ⚠️ CRITICAL: Data Visibility - This retrieves SAVED data from server only!
 
 Understanding the data flow:
-┌─────────────────┐
-│ set_* functions │ → Only update browser UI (temporary, not saved)
-└─────────────────┘
+┌───────────────────┐
+│ set_* tools       │ → Queue updates in memory (temporary, not saved)
+└───────────────────┘
          ↓
-┌─────────────────┐
-│ save_timesheet  │ → Sends UI data to server (permanent save)
-└─────────────────┘
+┌───────────────────┐
+│ save              │ → Sends queued data to server (permanent save)
+└───────────────────┘
          ↓
-┌─────────────────┐
-│ get_timesheet   │ → Retrieves saved data from server (this tool)
-└─────────────────┘
+┌───────────────────┐
+│ get_timesheet     │ → Retrieves saved data from server (this tool)
+└───────────────────┘
 
 Common mistake - DON'T do this:
-  set_daily_hours(0, "monday", 8)
+  set_hours([...])
   data = get_timesheet("2025-11-05")  # ❌ Won't see the change yet!
 
 Correct approach - DO this:
-  set_daily_hours(0, "monday", 8)
-  save_timesheet()                    # ✅ Save first
+  set_hours([...])
+  save()                              # ✅ Save first
   data = get_timesheet("2025-11-05")  # ✅ Now you'll see the change
 
 When to use this tool:
-- BEFORE making changes: To see what's currently saved
-- AFTER save_timesheet: To verify your changes were saved correctly
-- NOT between set_* and save_timesheet: You won't see pending changes
+- BEFORE making changes: To see what's currently saved and load page for set_entries
+- AFTER save: To verify your changes were saved correctly
+- NOT between set_* and save: You won't see pending changes
 
-IMPORTANT: Recent changes made with set_timesheet_entry/set_daily_hours/set_daily_note are NOT visible until you call timecard_save_timesheet first.`,
+IMPORTANT: Recent changes made with set_entries/set_hours/set_notes are NOT visible until you call save first.`,
   inputSchema: {
     type: 'object',
     properties: {

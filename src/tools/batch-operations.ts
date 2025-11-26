@@ -36,33 +36,32 @@ function getDayIndex(day: string): number {
   throw new Error(`Invalid day format: ${day}. Use monday-saturday, 0-5, or YYYY-MM-DD`);
 }
 
-const timecardBatchSetHours: MCPTool = {
-  name: 'timecard_batch_set_hours',
-  description: `Queue multiple hour records for batch submission (high-performance operation).
+const timecardSetHours: MCPTool = {
+  name: 'timecard_set_hours',
+  description: `Queue multiple hour records for submission.
 
-This tool QUEUES hour updates in memory without triggering any UI operations. Updates are submitted together when you call timecard_batch_save.
+This tool QUEUES hour updates in memory without triggering any UI operations. Updates are submitted together when you call timecard_save.
 
 ⚠️ CRITICAL WORKFLOW:
-1. Navigate to correct week with timecard_get_timesheet (if needed)
-2. Configure ALL entries with timecard_set_timesheet_entry (if not already done)
+1. Navigate to correct week with timecard_get_timesheet (REQUIRED - loads page)
+2. Configure ALL entries with timecard_set_entries
 3. Queue ALL hour updates with this tool
-4. Queue ALL note updates with timecard_batch_set_notes (if needed)
-5. Submit everything with timecard_batch_save
+4. Queue ALL note updates with timecard_set_notes (if needed)
+5. Submit everything with timecard_save
 
 Performance benefits:
 - NO UI operations (instant queuing)
 - Single form POST for all changes
-- 75% faster than individual timecard_set_daily_hours calls
 
 Example usage:
-  batch_set_hours([
+  set_hours([
     { entry_index: 0, day: "monday", hours: 8.0 },
     { entry_index: 0, day: "tuesday", hours: 8.0 },
     { entry_index: 0, day: "wednesday", hours: 8.0 }
   ])
-  batch_save()  // Submit all at once
+  save()  // Submit all at once
 
-IMPORTANT: This only queues updates. You MUST call timecard_batch_save to actually save changes.`,
+IMPORTANT: This only queues updates. You MUST call timecard_save to actually save changes.`,
   inputSchema: {
     type: 'object',
     properties: {
@@ -138,32 +137,31 @@ IMPORTANT: This only queues updates. You MUST call timecard_batch_save to actual
   }
 };
 
-const timecardBatchSetNotes: MCPTool = {
-  name: 'timecard_batch_set_notes',
-  description: `Queue multiple note records for batch submission (high-performance operation).
+const timecardSetNotes: MCPTool = {
+  name: 'timecard_set_notes',
+  description: `Queue multiple note records for submission.
 
-This tool QUEUES note updates in memory without triggering any UI operations or popup windows. Updates are submitted together when you call timecard_batch_save.
+This tool QUEUES note updates in memory without triggering any UI operations or popup windows. Updates are submitted together when you call timecard_save.
 
 ⚠️ CRITICAL WORKFLOW:
 1. Configure entries and set hours first
 2. Queue ALL note updates with this tool
-3. Submit everything with timecard_batch_save
+3. Submit everything with timecard_save
 
 Performance benefits:
 - NO popup windows
 - NO UI operations
-- 85% faster than individual note operations
 
 Example usage:
-  batch_set_notes([
+  set_notes([
     { entry_index: 0, day: "monday", note: "Development work" },
     { entry_index: 0, day: "tuesday", note: "Code review" }
   ])
-  batch_save()  // Submit all at once
+  save()  // Submit all at once
 
 WARNING: Note cannot contain special characters: #$%^&*=+{}[]|?'"
 
-IMPORTANT: This only queues updates. You MUST call timecard_batch_save to actually save changes.`,
+IMPORTANT: This only queues updates. You MUST call timecard_save to actually save changes.`,
   inputSchema: {
     type: 'object',
     properties: {
@@ -247,54 +245,41 @@ IMPORTANT: This only queues updates. You MUST call timecard_batch_save to actual
   }
 };
 
-const timecardBatchSave: MCPTool = {
-  name: 'timecard_batch_save',
-  description: `Submit all queued updates via direct form POST (核心效能優化).
+const timecardSave: MCPTool = {
+  name: 'timecard_save',
+  description: `Submit all queued updates via direct form POST.
 
-This tool submits ALL queued updates (hours and notes) in a single operation by directly POSTing to weekinfo_deal.jsp, completely bypassing UI operations.
-
-Performance improvements:
-- 75% faster than individual operations
-- Single network request for all changes
-- No UI wait times
-- No popup windows
+This tool submits ALL queued updates (entries, hours, and notes) in a single operation by directly POSTing to the server, completely bypassing UI operations.
 
 ⚠️ IMPORTANT: This submits ALL pending updates queued by:
-- timecard_batch_set_hours
-- timecard_batch_set_notes
+- timecard_set_entries
+- timecard_set_hours
+- timecard_set_notes
 
 After submission, all pending updates are cleared.
 
 Example complete workflow:
   # 1. Queue all updates
-  batch_set_hours([...])
-  batch_set_notes([...])
+  set_entries([...])
+  set_hours([...])
+  set_notes([...])
 
   # 2. Submit everything at once
-  batch_save()
+  save()
 
   # 3. Verify (optional)
   get_timesheet(date)
 
-You can also use action='submit' to submit for approval instead of just saving as draft.`,
+NOTE: Only 'save' (draft) is supported. 'submit' (for approval) is strictly prohibited.`,
   inputSchema: {
     type: 'object',
-    properties: {
-      action: {
-        type: 'string',
-        description: 'Action to perform: "save" (draft) or "submit" (for approval)',
-        enum: ['save', 'submit'],
-        default: 'save'
-      }
-    }
+    properties: {}
   },
   handler: async (args: Record<string, any>, session: TimeCardSession) => {
     const authResult = await session.ensureAuthenticated();
     if (!authResult.success) {
       throw new Error(authResult.message);
     }
-
-    const { action = 'save' } = args;
 
     try {
       const pendingCount = session.getPendingUpdateCount();
@@ -307,14 +292,13 @@ You can also use action='submit' to submit for approval instead of just saving a
         };
       }
 
-      console.log(`[Batch Save] Submitting ${pendingCount} pending updates with action: ${action}`);
+      console.log(`[Batch Save] Saving ${pendingCount} pending updates`);
 
-      const result = await session.batchSave(action as 'save' | 'submit');
+      const result = await session.batchSave();
 
       return {
         success: result.success,
         saved_updates: pendingCount,
-        action,
         message: result.message
       };
     } catch (error) {
@@ -323,17 +307,156 @@ You can also use action='submit' to submit for approval instead of just saving a
   }
 };
 
-const timecardBatchClear: MCPTool = {
-  name: 'timecard_batch_clear',
-  description: `Clear all pending updates without submitting.
+const timecardSetEntries: MCPTool = {
+  name: 'timecard_set_entries',
+  description: `Queue project/activity settings for submission.
+
+This tool QUEUES project and activity settings in memory without triggering any UI operations.
+Updates are submitted together when you call timecard_save.
+
+⚠️ CRITICAL: You must call timecard_get_timesheet FIRST to load the page and establish session data.
+
+Example usage:
+  # 1. Load the page first (REQUIRED)
+  get_timesheet("2025-01-06")
+
+  # 2. Queue entries
+  set_entries([
+    { entry_index: 0, project_id: "17647", activity_id: "9" },
+    { entry_index: 1, project_id: "17647", activity_id: "5" }
+  ])
+
+  # 3. Queue hours
+  set_hours([...])
+
+  # 4. Submit all at once
+  save()
+
+IMPORTANT: This only queues updates. You MUST call timecard_save to actually save changes.`,
+  inputSchema: {
+    type: 'object',
+    properties: {
+      updates: {
+        type: 'array',
+        description: 'Array of entry configurations to queue',
+        items: {
+          type: 'object',
+          properties: {
+            entry_index: {
+              type: 'integer',
+              description: 'Entry index (0-9)',
+              minimum: 0,
+              maximum: 9
+            },
+            project_id: {
+              type: 'string',
+              description: 'Project ID'
+            },
+            activity_id: {
+              type: 'string',
+              description: 'Activity ID'
+            }
+          },
+          required: ['entry_index', 'project_id', 'activity_id']
+        }
+      }
+    },
+    required: ['updates']
+  },
+  handler: async (args: Record<string, any>, session: TimeCardSession) => {
+    const authResult = await session.ensureAuthenticated();
+    if (!authResult.success) {
+      throw new Error(authResult.message);
+    }
+
+    const page = session.getPage();
+    if (!page) {
+      throw new Error('Browser page not available');
+    }
+
+    // Check if we're on the timesheet page
+    const currentUrl = page.url();
+    if (!currentUrl.includes('timecard_weekly.jsp')) {
+      throw new Error('Must navigate to timesheet page first using timecard_get_timesheet. The page must be loaded to read activity data.');
+    }
+
+    const { updates } = args;
+
+    if (!Array.isArray(updates) || updates.length === 0) {
+      throw new Error('Updates array is required and must not be empty');
+    }
+
+    try {
+      const queuedUpdates: string[] = [];
+
+      for (const update of updates) {
+        const { entry_index, project_id, activity_id } = update;
+
+        if (entry_index < 0 || entry_index > 9) {
+          throw new Error(`Invalid entry_index ${entry_index}: must be between 0 and 9`);
+        }
+
+        // Read activity value from act.collect (same logic as fill() function in JSP)
+        const activityValue = await page.evaluate(
+          ({ pid, aid }: { pid: string; aid: string }) => {
+            // @ts-ignore - act is a global variable in the browser context
+            if (typeof act === 'undefined' || !act.collect) {
+              return { error: 'act object not found on page' };
+            }
+
+            // @ts-ignore
+            for (let i = 0; i <= act.cnt; i++) {
+              // @ts-ignore
+              const item = act.collect[i];
+              if (item && item.pid === pid && item.uid === aid && item.bottom === 'true') {
+                // Use the same format as fill() function
+                return {
+                  value: item.bottom + '$' + item.uid + '$' + item.pid + '$' + item.progress
+                };
+              }
+            }
+            return { error: `Activity ${aid} not found for project ${pid}` };
+          },
+          { pid: project_id, aid: activity_id }
+        );
+
+        if ('error' in activityValue) {
+          throw new Error(activityValue.error as string);
+        }
+
+        // Queue project and activity updates
+        session.queueFormUpdate(`project${entry_index}`, project_id);
+        session.queueFormUpdate(`activity${entry_index}`, activityValue.value as string);
+        queuedUpdates.push(`entry${entry_index}: project=${project_id}, activity=${activity_id}`);
+      }
+
+      const pendingCount = session.getPendingUpdateCount();
+
+      return {
+        success: true,
+        queued_entries: queuedUpdates.length,
+        total_pending: pendingCount,
+        entries: queuedUpdates,
+        message: `Queued ${queuedUpdates.length} entry configurations. Total pending: ${pendingCount}. Call timecard_batch_save to submit.`
+      };
+    } catch (error) {
+      throw new Error(`Failed to queue entry configurations: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+};
+
+const timecardDiscard: MCPTool = {
+  name: 'timecard_discard',
+  description: `Discard all pending updates without submitting.
 
 Use this tool if you want to discard queued updates without saving them.
 
 This will clear all updates queued by:
-- timecard_batch_set_hours
-- timecard_batch_set_notes
+- timecard_set_entries
+- timecard_set_hours
+- timecard_set_notes
 
-After clearing, you can queue new updates or use regular tools.`,
+After discarding, you can queue new updates.`,
   inputSchema: {
     type: 'object',
     properties: {}
@@ -356,8 +479,9 @@ After clearing, you can queue new updates or use regular tools.`,
 };
 
 export const batchOperationTools: MCPTool[] = [
-  timecardBatchSetHours,
-  timecardBatchSetNotes,
-  timecardBatchSave,
-  timecardBatchClear
+  timecardSetEntries,
+  timecardSetHours,
+  timecardSetNotes,
+  timecardSave,
+  timecardDiscard
 ];

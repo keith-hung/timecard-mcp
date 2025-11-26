@@ -9,7 +9,6 @@ import {
 import { TimeCardSession } from './timecard-session.js';
 import {
   authTools,
-  timesheetTools,
   dataTools,
   managementTools,
   batchOperationTools
@@ -33,7 +32,6 @@ const timecardSession = new TimeCardSession();
 // Register all tools
 const allTools = [
   ...authTools,
-  ...timesheetTools,
   ...dataTools,
   ...managementTools,
   ...batchOperationTools,
