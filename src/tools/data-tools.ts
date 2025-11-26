@@ -138,7 +138,8 @@ const timecardGetActivities: MCPTool = {
             activities.push({
               id: item.uid,
               name: cleanName,
-              description: cleanName
+              description: cleanName,
+              value: item.bottom + '$' + item.uid + '$' + item.pid + '$' + item.progress
             });
           }
         }

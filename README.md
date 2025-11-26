@@ -89,17 +89,21 @@ If you're an AI agent using TimeCard MCP to fill timesheets, follow this proven 
 ### Standard Workflow
 
 ```python
-# Step 1: Get current timesheet to see what exists
+# Step 1: Get activities to obtain activity_value
+activities = get_activities("17647")
+# Returns: [{ id: "9", value: "true$9$17647$100", name: "Communication" }, ...]
+
+# Step 2: Get current timesheet to see what exists
 get_timesheet("2025-11-05")
 
-# Step 2: Queue ALL entry configurations
+# Step 3: Queue ALL entry configurations (use activity_value from step 1)
 set_entries([
-  {"entry_index": 0, "project_id": "17647", "activity_id": "9"},   # Communication
-  {"entry_index": 1, "project_id": "17647", "activity_id": "5"},   # Meeting
-  {"entry_index": 2, "project_id": "17647", "activity_id": "12"}   # Development
+  {"entry_index": 0, "project_id": "17647", "activity_value": "true$9$17647$100"},   # Communication
+  {"entry_index": 1, "project_id": "17647", "activity_value": "true$5$17647$100"},   # Meeting
+  {"entry_index": 2, "project_id": "17647", "activity_value": "true$12$17647$100"}   # Development
 ])
 
-# Step 3: Queue ALL hours
+# Step 4: Queue ALL hours
 set_hours([
   {"entry_index": 0, "day": "monday", "hours": 1.5},
   {"entry_index": 0, "day": "tuesday", "hours": 1.5},
@@ -109,17 +113,17 @@ set_hours([
   # ... continue for all entries and days
 ])
 
-# Step 4: Queue ALL notes (optional)
+# Step 5: Queue ALL notes (optional)
 set_notes([
   {"entry_index": 1, "day": "monday", "note": "Team meeting"},
   {"entry_index": 2, "day": "monday", "note": "Bug fixing"}
   # ... continue for all notes
 ])
 
-# Step 5: Submit everything at once (single POST request)
+# Step 6: Submit everything at once (single POST request)
 save()
 
-# Step 6: Verify saved data
+# Step 7: Verify saved data
 get_timesheet("2025-11-05")
 ```
 
@@ -152,11 +156,11 @@ get_timesheet("2025-11-05")  # Shows old data!
 ❌ **DON'T change project/activity of existing entry**
 ```python
 # Wrong - clears all hours!
-set_entries([{"entry_index": 0, "project_id": "17647", "activity_id": "9"}])
+set_entries([{"entry_index": 0, "project_id": "17647", "activity_value": "true$9$17647$100"}])
 set_hours([{"entry_index": 0, "day": "monday", "hours": 1.5}])
 save()
 
-set_entries([{"entry_index": 0, "project_id": "17647", "activity_id": "5"}])  # Changed activity - hours cleared!
+set_entries([{"entry_index": 0, "project_id": "17647", "activity_value": "true$5$17647$100"}])  # Changed activity - hours cleared!
 ```
 
 ### Expected Success Rate
@@ -243,7 +247,7 @@ The TimeCard MCP server provides 12 tools organized into 4 categories:
 
 ### Data Retrieval
 - `timecard_get_projects` - Get available projects
-- `timecard_get_activities` - Get activities for a project
+- `timecard_get_activities` - Get activities for a project (returns `value` field for use with `set_entries`)
 - `timecard_get_timesheet` - Get timesheet data for a week
 - `timecard_get_summary` - Get timesheet summary statistics
 
