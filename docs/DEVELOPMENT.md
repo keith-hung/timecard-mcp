@@ -122,8 +122,8 @@ BROWSER_DEVTOOLS=true
 
 - **Authentication** (`auth-tools.ts`) - Login, logout, session management
 - **Data Operations** (`data-tools.ts`) - Projects, activities, timesheet retrieval
-- **Timesheet Operations** (`timesheet-tools.ts`) - Entry manipulation, hours, notes
-- **Management** (`management-tools.ts`) - Save, validate, summarize
+- **Batch Operations** (`batch-operations.ts`) - Entry, hours, notes queuing and save
+- **Management** (`management-tools.ts`) - Summary statistics
 
 #### 4. Utilities (`src/utils/`)
 
@@ -163,13 +163,12 @@ src/
 ├── index.ts                 # MCP server entry point
 ├── timecard-session.ts      # Session management
 ├── tools/                   # MCP tool implementations
-│   ├── index.ts            # Tool type definitions
+│   ├── index.ts            # Tool type definitions and exports
 │   ├── auth-tools.ts       # Authentication tools
 │   ├── data-tools.ts       # Data retrieval tools
-│   ├── timesheet-tools.ts  # Timesheet manipulation
-│   └── management-tools.ts # Management operations
-└── utils/                   # Utility modules
-    ├── index.ts            # Utility exports
+│   ├── batch-operations.ts # Entry, hours, notes, save, discard
+│   └── management-tools.ts # Summary statistics
+└── utils/                   # Utility modules (if present)
     ├── errors.ts           # Error handling
     └── logger.ts           # Logging utilities
 ```
@@ -307,64 +306,103 @@ Gets activities for a specific project.
 }
 ```
 
-### Timesheet Tools
+### Batch Operations Tools
 
-#### `timecard_set_timesheet_entry`
+#### `timecard_set_entries`
 
-Sets project and activity for a timesheet entry.
-
-```typescript
-// Input
-{
-  entry_index: number,  // 0-9
-  project_id: string,
-  activity_id: string
-}
-
-// Output
-{
-  success: boolean,
-  entry_index: number,
-  project_name: string,
-  activity_name: string
-}
-```
-
-#### `timecard_set_daily_hours`
-
-Sets hours for a specific day and entry.
+Queue project/activity settings for multiple entries.
 
 ```typescript
 // Input
 {
-  entry_index: number,  // 0-9
-  day: string,         // "monday", "0", "2025-07-07"
-  hours: number
+  updates: Array<{
+    entry_index: number,  // 0-9
+    project_id: string,
+    activity_id: string
+  }>
 }
 
 // Output
 {
   success: boolean,
-  entry_index: number,
-  day: string,
-  day_index: number,
-  hours: number
+  queued_entries: number,
+  total_pending: number,
+  entries: string[],
+  message: string
 }
 ```
 
-### Management Tools
+#### `timecard_set_hours`
 
-#### `timecard_save_timesheet`
+Queue hours for multiple entries and days.
 
-Permanently saves all timesheet changes.
+```typescript
+// Input
+{
+  updates: Array<{
+    entry_index: number,  // 0-9
+    day: string,         // "monday", "0", "2025-07-07"
+    hours: number
+  }>
+}
+
+// Output
+{
+  success: boolean,
+  queued_updates: number,
+  total_pending: number,
+  updates: string[],
+  message: string
+}
+```
+
+#### `timecard_set_notes`
+
+Queue notes for multiple entries and days.
+
+```typescript
+// Input
+{
+  updates: Array<{
+    entry_index: number,  // 0-9
+    day: string,
+    note: string
+  }>
+}
+
+// Output
+{
+  success: boolean,
+  queued_updates: number,
+  total_pending: number,
+  updates: string[],
+  message: string
+}
+```
+
+#### `timecard_save`
+
+Submit all queued updates via direct form POST.
 
 ```typescript
 // Output
 {
   success: boolean,
-  message: string,
-  timestamp: string,
-  current_url: string
+  saved_updates: number,
+  message: string
+}
+```
+
+#### `timecard_discard`
+
+Discard all pending updates without saving.
+
+```typescript
+// Output
+{
+  success: boolean,
+  cleared_updates: number,
+  message: string
 }
 ```
 
@@ -589,8 +627,8 @@ export class MockTimeCardPage {
    const allTools = [
      ...authTools,
      ...dataTools,
-     ...timesheetTools,
      ...managementTools,
+     ...batchOperationTools,
      ...newFeatureTools, // Add here
    ];
    ```

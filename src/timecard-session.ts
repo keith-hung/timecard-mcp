@@ -351,6 +351,23 @@ export class TimeCardSession {
     if (errorInfo) {
       throw new Error(`TimeCard Error: ${errorInfo.mainMessage}\nException: ${errorInfo.exceptionMessage}`);
     }
+
+    // Verify we're on a valid timesheet page
+    // Both daychoose.jsp and timecard_weekly.jsp are valid timesheet pages
+    const currentUrl = this.page.url();
+    const isValidTimesheetPage = currentUrl.includes('daychoose.jsp') || currentUrl.includes('timecard_weekly.jsp');
+
+    if (!isValidTimesheetPage) {
+      throw new Error(`Navigation failed: expected daychoose.jsp or timecard_weekly.jsp but got ${currentUrl}`);
+    }
+
+    // Verify the page has the expected form elements
+    const hasTimesheetForm = await this.page.locator('select[name="project0"]').count() > 0;
+    if (!hasTimesheetForm) {
+      throw new Error(`Timesheet page loaded but form elements not found. URL: ${currentUrl}`);
+    }
+
+    console.log(`[Navigation] Successfully navigated to timesheet for ${date}`);
   }
 
   async waitForElement(selector: string, timeout: number = 5000): Promise<boolean> {
@@ -520,9 +537,10 @@ export class TimeCardSession {
       throw new Error('Not authenticated or page not available');
     }
 
-    // Ensure we're on the timesheet page (required for session data)
+    // Ensure we're on a valid timesheet page (required for session data)
     const currentUrl = this.page.url();
-    if (!currentUrl.includes('timecard_weekly.jsp')) {
+    const isValidTimesheetPage = currentUrl.includes('daychoose.jsp') || currentUrl.includes('timecard_weekly.jsp');
+    if (!isValidTimesheetPage) {
       throw new Error('Must navigate to timesheet page first using get_timesheet or navigateToTimesheet. Server requires session data established by loading the page.');
     }
 
