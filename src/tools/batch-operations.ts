@@ -374,9 +374,10 @@ IMPORTANT: This only queues updates. You MUST call timecard_save to actually sav
       throw new Error('Browser page not available');
     }
 
-    // Check if we're on the timesheet page
+    // Check if we're on a valid timesheet page (daychoose.jsp or timecard_weekly.jsp)
     const currentUrl = page.url();
-    if (!currentUrl.includes('timecard_weekly.jsp')) {
+    const isValidTimesheetPage = currentUrl.includes('daychoose.jsp') || currentUrl.includes('timecard_weekly.jsp');
+    if (!isValidTimesheetPage) {
       throw new Error('Must navigate to timesheet page first using timecard_get_timesheet. The page must be loaded to read activity data.');
     }
 
