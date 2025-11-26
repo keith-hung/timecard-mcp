@@ -511,12 +511,19 @@ export class TimeCardSession {
   }
 
   /**
-   * Submit all pending updates via direct form POST.
-   * This bypasses UI operations and directly submits to weekinfo_deal.jsp.
+   * Save all pending updates via direct form POST.
+   * This bypasses UI operations and directly POSTs to weekinfo_deal.jsp.
+   * NOTE: Only 'save' action is allowed. 'submit' is strictly prohibited.
    */
-  async batchSave(action: 'save' | 'submit' = 'save'): Promise<{ success: boolean; message: string }> {
+  async batchSave(): Promise<{ success: boolean; message: string }> {
     if (!this.page || !this.sessionInfo.authenticated) {
       throw new Error('Not authenticated or page not available');
+    }
+
+    // Ensure we're on the timesheet page (required for session data)
+    const currentUrl = this.page.url();
+    if (!currentUrl.includes('timecard_weekly.jsp')) {
+      throw new Error('Must navigate to timesheet page first using get_timesheet or navigateToTimesheet. Server requires session data established by loading the page.');
     }
 
     if (this.pendingFormUpdates.size === 0) {
@@ -527,7 +534,7 @@ export class TimeCardSession {
     }
 
     try {
-      console.log(`[Batch] Starting batch ${action} with ${this.pendingFormUpdates.size} pending updates`);
+      console.log(`[Batch] Starting batch save with ${this.pendingFormUpdates.size} pending updates`);
 
       // 1. Get current form state
       const baseFormData = await this.getCurrentFormState();
@@ -537,12 +544,8 @@ export class TimeCardSession {
         baseFormData[key] = value;
       }
 
-      // 3. Add action button
-      if (action === 'save') {
-        baseFormData['save'] = ' save ';
-      } else {
-        baseFormData['submit'] = 'submit';
-      }
+      // 3. Add save action button (submit is strictly prohibited)
+      baseFormData['save'] = ' save ';
 
       // 4. POST to weekinfo_deal.jsp
       const targetUrl = `${this.baseUrl}Timecard/timecard_week/weekinfo_deal.jsp`;
@@ -578,7 +581,7 @@ export class TimeCardSession {
 
         return {
           success: true,
-          message: `Batch ${action} successful - saved ${savedCount} updates`
+          message: `Batch save successful - saved ${savedCount} updates`
         };
       } else if (status === 200) {
         // Check if there's an error on the page
@@ -593,13 +596,13 @@ export class TimeCardSession {
 
         return {
           success: true,
-          message: `Batch ${action} completed - saved ${savedCount} updates`
+          message: `Batch save completed - saved ${savedCount} updates`
         };
       } else {
         throw new Error(`Unexpected response status: ${status}`);
       }
     } catch (error) {
-      const errorMsg = `Batch ${action} failed: ${error instanceof Error ? error.message : 'Unknown error'}`;
+      const errorMsg = `Batch save failed: ${error instanceof Error ? error.message : 'Unknown error'}`;
       console.error(`[Batch] ${errorMsg}`);
       throw new Error(errorMsg);
     }

@@ -4,23 +4,18 @@ A Model Context Protocol (MCP) server for automating TimeCard timesheet manageme
 
 ## ⚡ Performance Optimizations
 
-This MCP includes significant performance optimizations:
+This MCP uses batch operations exclusively for optimal performance:
 
 - **🚀 Batch Operations**: Queue multiple updates and submit in a single request
-  - 75% faster than individual operations (5-8 sec vs 25-30 sec for a full week)
+  - 75% faster than legacy UI-based operations
   - Zero UI operations - direct form POST to server
-
-- **📝 Fast Note Setting**: Direct field manipulation bypassing popup windows
-  - 80% faster than popup method (2-3 sec vs 10-15 sec)
-  - No popup timeout issues
 
 - **💾 Session Persistence**: Browser context reuse between restarts
   - 60% reduction in re-login frequency
   - Session state saved and restored automatically
 
-**Recommended Tools:**
-- Use `timecard_batch_set_hours` + `timecard_batch_set_notes` + `timecard_batch_save` for best performance
-- Fallback to individual tools (`timecard_set_daily_hours`, `timecard_set_daily_note`) if needed
+**Workflow:**
+- Use `timecard_set_entries` + `timecard_set_hours` + `timecard_set_notes` + `timecard_save`
 
 ---
 
@@ -79,34 +74,33 @@ If you're an AI agent using TimeCard MCP to fill timesheets, follow this proven 
 - Changing project/activity clears ALL hours for that entry
 - Use different entry indices (0-9) for different project/activity combinations
 
-**2. Batch Operations**
+**2. Workflow Order**
 - Configure ALL entries first
 - Then fill ALL hours
 - Then add ALL notes
 - Finally save once
-- This prevents UI synchronization issues
 
 **3. Data Visibility**
-- `set_*` functions only update browser UI (temporary)
-- `save_timesheet` writes to server (permanent)
+- `set_*` functions queue updates in memory (temporary)
+- `save` writes to server (permanent)
 - `get_timesheet` reads from server (only shows saved data)
-- Always save before verifying with get_timesheet
+- Always call `save` before verifying with `get_timesheet`
 
-### Standard Workflow (High-Performance)
-
-**⚡ Recommended: Use batch operations for 75% faster execution**
+### Standard Workflow
 
 ```python
 # Step 1: Get current timesheet to see what exists
 get_timesheet("2025-11-05")
 
-# Step 2: Configure ALL entries you need
-set_timesheet_entry(0, "17647", "9")   # Communication
-set_timesheet_entry(1, "17647", "5")   # Meeting
-set_timesheet_entry(2, "17647", "12")  # Development
+# Step 2: Queue ALL entry configurations
+set_entries([
+  {"entry_index": 0, "project_id": "17647", "activity_id": "9"},   # Communication
+  {"entry_index": 1, "project_id": "17647", "activity_id": "5"},   # Meeting
+  {"entry_index": 2, "project_id": "17647", "activity_id": "12"}   # Development
+])
 
-# Step 3: Queue ALL hours (fast - no UI operations)
-batch_set_hours([
+# Step 3: Queue ALL hours
+set_hours([
   {"entry_index": 0, "day": "monday", "hours": 1.5},
   {"entry_index": 0, "day": "tuesday", "hours": 1.5},
   {"entry_index": 1, "day": "monday", "hours": 2},
@@ -115,15 +109,15 @@ batch_set_hours([
   # ... continue for all entries and days
 ])
 
-# Step 4: Queue ALL notes (fast - no popup windows)
-batch_set_notes([
+# Step 4: Queue ALL notes (optional)
+set_notes([
   {"entry_index": 1, "day": "monday", "note": "Team meeting"},
   {"entry_index": 2, "day": "monday", "note": "Bug fixing"}
   # ... continue for all notes
 ])
 
 # Step 5: Submit everything at once (single POST request)
-batch_save()  # 🚀 75% faster!
+save()
 
 # Step 6: Verify saved data
 get_timesheet("2025-11-05")
@@ -137,48 +131,40 @@ If the week already has Mon-Wed filled and you need to add Thu-Fri:
 # Entries 0-2 already configured with Mon-Wed hours
 # Just add new days directly (no need to re-configure entries)
 
-set_daily_hours(0, "thursday", 1.5)
-set_daily_hours(0, "friday", 1.5)
-set_daily_hours(2, "thursday", 2.5)
-# ...
-
-save_timesheet()
+set_hours([
+  {"entry_index": 0, "day": "thursday", "hours": 1.5},
+  {"entry_index": 0, "day": "friday", "hours": 1.5},
+  {"entry_index": 2, "day": "thursday", "hours": 2.5}
+])
+save()
 get_timesheet("2025-11-05")  # Verify
 ```
 
 ### Common Mistakes to Avoid
 
-❌ **DON'T mix entry setup and hour filling**
-```python
-# Wrong - causes UI sync issues
-set_timesheet_entry(0, "17647", "9")
-set_daily_hours(0, "monday", 1.5)  # May fail
-set_timesheet_entry(1, "17647", "5")
-```
-
-❌ **DON'T check get_timesheet before saving**
+❌ **DON'T check get_timesheet before save**
 ```python
 # Wrong - won't see changes yet
-set_daily_hours(0, "monday", 8)
+set_hours([{"entry_index": 0, "day": "monday", "hours": 8}])
 get_timesheet("2025-11-05")  # Shows old data!
 ```
 
 ❌ **DON'T change project/activity of existing entry**
 ```python
 # Wrong - clears all hours!
-set_timesheet_entry(0, "17647", "9")
-set_daily_hours(0, "monday", 1.5)
-save_timesheet()
+set_entries([{"entry_index": 0, "project_id": "17647", "activity_id": "9"}])
+set_hours([{"entry_index": 0, "day": "monday", "hours": 1.5}])
+save()
 
-set_timesheet_entry(0, "17647", "5")  # Changed activity - hours cleared!
+set_entries([{"entry_index": 0, "project_id": "17647", "activity_id": "5"}])  # Changed activity - hours cleared!
 ```
 
 ### Expected Success Rate
 
 Following this workflow:
-- ✅ First-time success rate: 80%+
-- ✅ Tool calls needed: <10 for a full week
-- ✅ "Selector disabled" errors: Rare
+- ✅ First-time success rate: 90%+
+- ✅ Tool calls needed: 5-6 for a full week
+- ✅ Single POST request for all changes
 
 ---
 
@@ -248,7 +234,7 @@ After configuration, restart Claude Desktop. You should now see TimeCard tools a
 
 ## 🔧 Available Tools
 
-The TimeCard MCP server provides 13 tools organized into 4 categories:
+The TimeCard MCP server provides 12 tools organized into 4 categories:
 
 ### Authentication
 - `timecard_login` - Login to TimeCard system
@@ -259,17 +245,14 @@ The TimeCard MCP server provides 13 tools organized into 4 categories:
 - `timecard_get_projects` - Get available projects
 - `timecard_get_activities` - Get activities for a project
 - `timecard_get_timesheet` - Get timesheet data for a week
+- `timecard_get_summary` - Get timesheet summary statistics
 
 ### Timesheet Operations
-- `timecard_set_timesheet_entry` - Set project and activity for an entry
-- `timecard_set_daily_hours` - Set hours for a specific day
-- `timecard_set_daily_note` - Set note for a specific day
-- `timecard_clear_daily_hours` - Clear all hours for a specific day
-
-### Management
-- `timecard_save_timesheet` - Save timesheet changes permanently
-- `timecard_validate_timesheet` - Validate timesheet for errors
-- `timecard_get_summary` - Get timesheet summary statistics
+- `timecard_set_entries` - Queue project/activity configurations
+- `timecard_set_hours` - Queue hour updates
+- `timecard_set_notes` - Queue note updates
+- `timecard_save` - Submit all queued updates in single POST
+- `timecard_discard` - Discard queued updates
 
 See [FEATURES.md](./docs/FEATURES.md) for detailed usage.
 
