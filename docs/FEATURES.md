@@ -98,7 +98,7 @@ Get list of available projects for the user.
 
 #### `timecard_get_activities`
 
-Get list of activities for a specific project.
+Get list of activities for a specific project. Returns the `value` field needed for `set_entries`.
 
 **Parameters:**
 
@@ -111,7 +111,21 @@ Get list of activities for a specific project.
   - `id` (string): Activity ID
   - `name` (string): Activity name
   - `description` (string): Activity description
+  - `value` (string): Activity value for use with `set_entries` (format: `bottom$uid$pid$progress`)
 - `count` (number): Number of activities
+
+**Example Response:**
+
+```json
+{
+  "project_id": "17647",
+  "activities": [
+    { "id": "9", "name": "Communication", "description": "Communication", "value": "true$9$17647$100" },
+    { "id": "5", "name": "Meeting", "description": "Meeting", "value": "true$5$17647$100" }
+  ],
+  "count": 2
+}
+```
 
 ---
 
@@ -123,14 +137,16 @@ All timesheet operations queue updates in memory. You **MUST** call `timecard_sa
 
 Queue project/activity settings for multiple entries.
 
-**IMPORTANT:** You must call `timecard_get_timesheet` FIRST to load the page and establish session data.
+**WORKFLOW:**
+1. Call `timecard_get_activities` first to get the `value` field
+2. Use the `value` as `activity_value` in this tool
 
 **Parameters:**
 
 - `updates` (array, required): Array of entry configurations
   - `entry_index` (integer): Entry index (0-9)
   - `project_id` (string): Project ID
-  - `activity_id` (string): Activity ID
+  - `activity_value` (string): Activity value from `get_activities` (format: `bottom$uid$pid$progress`)
 
 **Returns:**
 
@@ -145,8 +161,8 @@ Queue project/activity settings for multiple entries.
 ```json
 {
   "updates": [
-    { "entry_index": 0, "project_id": "17647", "activity_id": "9" },
-    { "entry_index": 1, "project_id": "17647", "activity_id": "5" }
+    { "entry_index": 0, "project_id": "17647", "activity_value": "true$9$17647$100" },
+    { "entry_index": 1, "project_id": "17647", "activity_value": "true$5$17647$100" }
   ]
 }
 ```
@@ -279,31 +295,35 @@ Get summary statistics for a timesheet week.
 ### Standard Workflow
 
 ```python
-# Step 1: Get current timesheet (REQUIRED - loads page)
+# Step 1: Get activities to obtain activity_value
+activities = get_activities("17647")
+# Returns: [{ id: "9", value: "true$9$17647$100", name: "Communication" }, ...]
+
+# Step 2: Get current timesheet to see what exists
 get_timesheet("2025-11-10")
 
-# Step 2: Queue ALL entry configurations
+# Step 3: Queue ALL entry configurations (use activity_value from step 1)
 set_entries([
-  {"entry_index": 0, "project_id": "17647", "activity_id": "9"},
-  {"entry_index": 1, "project_id": "17647", "activity_id": "5"}
+  {"entry_index": 0, "project_id": "17647", "activity_value": "true$9$17647$100"},
+  {"entry_index": 1, "project_id": "17647", "activity_value": "true$5$17647$100"}
 ])
 
-# Step 3: Queue ALL hours
+# Step 4: Queue ALL hours
 set_hours([
   {"entry_index": 0, "day": "monday", "hours": 8.0},
   {"entry_index": 0, "day": "tuesday", "hours": 8.0},
   {"entry_index": 1, "day": "monday", "hours": 4.0}
 ])
 
-# Step 4: Queue ALL notes (optional)
+# Step 5: Queue ALL notes (optional)
 set_notes([
   {"entry_index": 0, "day": "monday", "note": "Development work"}
 ])
 
-# Step 5: Submit everything at once
+# Step 6: Submit everything at once
 save()
 
-# Step 6: Verify saved data
+# Step 7: Verify saved data
 get_timesheet("2025-11-10")
 ```
 
@@ -382,11 +402,12 @@ save()
 
 ### Workflow Order
 
-1. **Always call `get_timesheet` first** - This loads the page and establishes the session
-2. **Configure ALL entries** - Use `set_entries` for all project/activity combinations
-3. **Fill ALL hours** - Use `set_hours` for all entries and days
-4. **Add ALL notes** - Use `set_notes` if needed
-5. **Save once** - Call `save` to submit everything in a single POST
+1. **Get activities first** - Call `get_activities` to obtain `activity_value` for each activity
+2. **Get current timesheet** - Call `get_timesheet` to see existing data
+3. **Configure ALL entries** - Use `set_entries` with `activity_value` from step 1
+4. **Fill ALL hours** - Use `set_hours` for all entries and days
+5. **Add ALL notes** - Use `set_notes` if needed
+6. **Save once** - Call `save` to submit everything in a single POST
 
 ### Session Management
 

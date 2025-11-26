@@ -314,16 +314,21 @@ const timecardSetEntries: MCPTool = {
 This tool QUEUES project and activity settings in memory without triggering any UI operations.
 Updates are submitted together when you call timecard_save.
 
-⚠️ CRITICAL: You must call timecard_get_timesheet FIRST to load the page and establish session data.
+⚠️ WORKFLOW:
+1. Get activity data with timecard_get_activities (returns activity_value)
+2. Queue entries with this tool (use activity_value from step 1)
+3. Queue hours with timecard_set_hours
+4. Submit all at once with timecard_save
 
 Example usage:
-  # 1. Load the page first (REQUIRED)
-  get_timesheet("2025-01-06")
+  # 1. Get activities first (returns id and value)
+  activities = get_activities("17647")
+  # Returns: [{ id: "9", value: "true$9$17647$100", ... }, ...]
 
-  # 2. Queue entries
+  # 2. Queue entries using the value field
   set_entries([
-    { entry_index: 0, project_id: "17647", activity_id: "9" },
-    { entry_index: 1, project_id: "17647", activity_id: "5" }
+    { entry_index: 0, project_id: "17647", activity_value: "true$9$17647$100" },
+    { entry_index: 1, project_id: "17647", activity_value: "true$5$17647$100" }
   ])
 
   # 3. Queue hours
@@ -352,12 +357,12 @@ IMPORTANT: This only queues updates. You MUST call timecard_save to actually sav
               type: 'string',
               description: 'Project ID'
             },
-            activity_id: {
+            activity_value: {
               type: 'string',
-              description: 'Activity ID'
+              description: 'Activity value from get_activities (format: bottom$uid$pid$progress)'
             }
           },
-          required: ['entry_index', 'project_id', 'activity_id']
+          required: ['entry_index', 'project_id', 'activity_value']
         }
       }
     },
@@ -367,18 +372,6 @@ IMPORTANT: This only queues updates. You MUST call timecard_save to actually sav
     const authResult = await session.ensureAuthenticated();
     if (!authResult.success) {
       throw new Error(authResult.message);
-    }
-
-    const page = session.getPage();
-    if (!page) {
-      throw new Error('Browser page not available');
-    }
-
-    // Check if we're on a valid timesheet page (daychoose.jsp or timecard_weekly.jsp)
-    const currentUrl = page.url();
-    const isValidTimesheetPage = currentUrl.includes('daychoose.jsp') || currentUrl.includes('timecard_weekly.jsp');
-    if (!isValidTimesheetPage) {
-      throw new Error('Must navigate to timesheet page first using timecard_get_timesheet. The page must be loaded to read activity data.');
     }
 
     const { updates } = args;
@@ -391,44 +384,20 @@ IMPORTANT: This only queues updates. You MUST call timecard_save to actually sav
       const queuedUpdates: string[] = [];
 
       for (const update of updates) {
-        const { entry_index, project_id, activity_id } = update;
+        const { entry_index, project_id, activity_value } = update;
 
         if (entry_index < 0 || entry_index > 9) {
           throw new Error(`Invalid entry_index ${entry_index}: must be between 0 and 9`);
         }
 
-        // Read activity value from act.collect (same logic as fill() function in JSP)
-        const activityValue = await page.evaluate(
-          ({ pid, aid }: { pid: string; aid: string }) => {
-            // @ts-ignore - act is a global variable in the browser context
-            if (typeof act === 'undefined' || !act.collect) {
-              return { error: 'act object not found on page' };
-            }
-
-            // @ts-ignore
-            for (let i = 0; i <= act.cnt; i++) {
-              // @ts-ignore
-              const item = act.collect[i];
-              if (item && item.pid === pid && item.uid === aid && item.bottom === 'true') {
-                // Use the same format as fill() function
-                return {
-                  value: item.bottom + '$' + item.uid + '$' + item.pid + '$' + item.progress
-                };
-              }
-            }
-            return { error: `Activity ${aid} not found for project ${pid}` };
-          },
-          { pid: project_id, aid: activity_id }
-        );
-
-        if ('error' in activityValue) {
-          throw new Error(activityValue.error as string);
+        if (!activity_value || !activity_value.includes('$')) {
+          throw new Error(`Invalid activity_value for entry ${entry_index}: must be in format 'bottom$uid$pid$progress' (get this from timecard_get_activities)`);
         }
 
         // Queue project and activity updates
         session.queueFormUpdate(`project${entry_index}`, project_id);
-        session.queueFormUpdate(`activity${entry_index}`, activityValue.value as string);
-        queuedUpdates.push(`entry${entry_index}: project=${project_id}, activity=${activity_id}`);
+        session.queueFormUpdate(`activity${entry_index}`, activity_value);
+        queuedUpdates.push(`entry${entry_index}: project=${project_id}, activity_value=${activity_value}`);
       }
 
       const pendingCount = session.getPendingUpdateCount();
@@ -438,7 +407,7 @@ IMPORTANT: This only queues updates. You MUST call timecard_save to actually sav
         queued_entries: queuedUpdates.length,
         total_pending: pendingCount,
         entries: queuedUpdates,
-        message: `Queued ${queuedUpdates.length} entry configurations. Total pending: ${pendingCount}. Call timecard_batch_save to submit.`
+        message: `Queued ${queuedUpdates.length} entry configurations. Total pending: ${pendingCount}. Call timecard_save to submit.`
       };
     } catch (error) {
       throw new Error(`Failed to queue entry configurations: ${error instanceof Error ? error.message : 'Unknown error'}`);
