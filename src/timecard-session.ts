@@ -528,6 +528,53 @@ export class TimeCardSession {
   }
 
   /**
+   * Calculate daily hours from form data.
+   * Returns an object with day index (0-6) as key and total hours as value.
+   */
+  private calculateDailyHours(formData: Record<string, string>): Record<number, number> {
+    const dailyHours: Record<number, number> = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 };
+
+    // Pattern: record{entry_index}_{day_index} for normal hours (0-24 entries, 0-6 days)
+    const recordPattern = /^record(\d+)_(\d+)$/;
+
+    for (const [fieldName, value] of Object.entries(formData)) {
+      const match = fieldName.match(recordPattern);
+      if (match && value && value.trim() !== '') {
+        const dayIndex = parseInt(match[2], 10);
+        if (dayIndex >= 0 && dayIndex <= 6) {
+          const hours = parseFloat(value);
+          if (!isNaN(hours)) {
+            dailyHours[dayIndex] += hours;
+          }
+        }
+      }
+    }
+
+    return dailyHours;
+  }
+
+  /**
+   * Validate that no day exceeds the maximum allowed hours.
+   * Returns null if valid, or an error message if invalid.
+   */
+  private validateDailyHours(dailyHours: Record<number, number>, maxHoursPerDay: number = 8): string | null {
+    const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const violations: string[] = [];
+
+    for (let day = 0; day <= 6; day++) {
+      if (dailyHours[day] > maxHoursPerDay) {
+        violations.push(`${dayNames[day]}: ${dailyHours[day]}hr (max ${maxHoursPerDay}hr)`);
+      }
+    }
+
+    if (violations.length > 0) {
+      return `Daily hours exceeded: ${violations.join(', ')}`;
+    }
+
+    return null;
+  }
+
+  /**
    * Save all pending updates via direct form POST.
    * This bypasses UI operations and directly POSTs to weekinfo_deal.jsp.
    * NOTE: Only 'save' action is allowed. 'submit' is strictly prohibited.
@@ -562,10 +609,24 @@ export class TimeCardSession {
         baseFormData[key] = value;
       }
 
-      // 3. Add save action button (submit is strictly prohibited)
+      // 3. Validate daily hours (max 8hr per day)
+      const dailyHours = this.calculateDailyHours(baseFormData);
+      const validationError = this.validateDailyHours(dailyHours, 8);
+      if (validationError) {
+        console.error(`[Batch] Validation failed: ${validationError}`);
+        throw new Error(validationError);
+      }
+      console.log('[Batch] Daily hours validation passed:', dailyHours);
+
+      // 4. CRITICAL: Remove any submit buttons (submit is STRICTLY PROHIBITED)
+      delete baseFormData['submit'];
+      delete baseFormData['submit2'];
+      console.log('[Batch] Removed submit/submit2 fields (if any)');
+
+      // 5. Add save action button (submit is strictly prohibited)
       baseFormData['save'] = ' save ';
 
-      // 4. POST to weekinfo_deal.jsp
+      // 6. POST to weekinfo_deal.jsp
       const targetUrl = `${this.baseUrl}Timecard/timecard_week/weekinfo_deal.jsp`;
       console.log(`[Batch] POSTing to ${targetUrl}`);
 
@@ -575,7 +636,7 @@ export class TimeCardSession {
         // It automatically returns redirect status codes without following
       });
 
-      // 5. Check response
+      // 7. Check response
       const status = response.status();
       console.log(`[Batch] Response status: ${status}`);
 
