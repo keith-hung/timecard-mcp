@@ -94,7 +94,11 @@ activities = get_activities("17647")
 # Returns: [{ id: "9", value: "true$9$17647$100", name: "Communication" }, ...]
 
 # Step 2: Get current timesheet to see what exists
+# Returns: entries with daily_hours, daily_status, daily_notes
 get_timesheet("2025-11-05")
+# Each entry includes:
+#   daily_status: { monday: "draft"|"submitted"|"approved"|"rejected", ... }
+#   daily_notes: { monday: "note text", ... }
 
 # Step 3: Queue ALL entry configurations (use activity_value from step 1)
 set_entries([
@@ -248,7 +252,9 @@ The TimeCard MCP server provides 12 tools organized into 4 categories:
 ### Data Retrieval
 - `timecard_get_projects` - Get available projects
 - `timecard_get_activities` - Get activities for a project (returns `value` field for use with `set_entries`)
-- `timecard_get_timesheet` - Get timesheet data for a week
+- `timecard_get_timesheet` - Get timesheet data for a week (includes hours, status, notes per day)
+  - Returns `daily_status`: `draft` | `submitted` | `approved` | `rejected`
+  - Returns `daily_notes`: Notes for each day
 - `timecard_get_summary` - Get timesheet summary statistics
 
 ### Timesheet Operations
