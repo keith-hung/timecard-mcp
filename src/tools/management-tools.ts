@@ -1,5 +1,45 @@
 import { MCPTool } from './index.js';
 import { TimeCardSession } from '../timecard-session.js';
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+// Read version info generated during build
+function getVersionInfo() {
+  try {
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = dirname(__filename);
+    const versionPath = join(__dirname, '..', 'version.json');
+    const versionData = readFileSync(versionPath, 'utf8');
+    return JSON.parse(versionData);
+  } catch {
+    return {
+      commit: 'unknown',
+      branch: 'unknown',
+      buildDate: 'unknown'
+    };
+  }
+}
+
+const timecardVersion: MCPTool = {
+  name: 'timecard_version',
+  description: `Get TimeCard MCP version information.
+
+Returns:
+- commit: Git commit hash (e.g., "801fd99" or "801fd99-dirty" if has uncommitted changes)
+- branch: Git branch name (e.g., "v2-batch-operations")
+- buildDate: ISO timestamp when the MCP was built
+
+Use this to verify which version of TimeCard MCP is running.`,
+  inputSchema: {
+    type: 'object',
+    properties: {},
+    required: []
+  },
+  handler: async (_args, _session: TimeCardSession) => {
+    return getVersionInfo();
+  }
+};
 
 const timecardGetSummary: MCPTool = {
   name: 'timecard_get_summary',
@@ -113,5 +153,6 @@ const timecardGetSummary: MCPTool = {
 };
 
 export const managementTools: MCPTool[] = [
+  timecardVersion,
   timecardGetSummary
 ];

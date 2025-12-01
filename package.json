@@ -5,6 +5,7 @@
   "main": "dist/index.js",
   "type": "module",
   "scripts": {
+    "prebuild": "node scripts/generate-version.cjs",
     "build": "tsc",
     "start": "node dist/index.js",
     "dev": "tsc --watch",
