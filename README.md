@@ -242,7 +242,7 @@ After configuration, restart Claude Desktop. You should now see TimeCard tools a
 
 ## 🔧 Available Tools
 
-The TimeCard MCP server provides 12 tools organized into 4 categories:
+The TimeCard MCP server provides 13 tools organized into 5 categories:
 
 ### Authentication
 - `timecard_login` - Login to TimeCard system
@@ -263,6 +263,12 @@ The TimeCard MCP server provides 12 tools organized into 4 categories:
 - `timecard_set_notes` - Queue note updates
 - `timecard_save` - Submit all queued updates in single POST
 - `timecard_discard` - Discard queued updates
+
+### Utility
+- `timecard_version` - Get MCP version info
+  - Returns `commit`: Git hash (e.g., `801fd99` or `801fd99-dirty` for uncommitted changes)
+  - Returns `branch`: Git branch name
+  - Returns `buildDate`: Build timestamp
 
 See [FEATURES.md](./docs/FEATURES.md) for detailed usage.
 
