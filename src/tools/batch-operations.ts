@@ -129,7 +129,7 @@ IMPORTANT: This only queues updates. You MUST call timecard_save to actually sav
         queued_updates: queuedUpdates.length,
         total_pending: pendingCount,
         updates: queuedUpdates,
-        message: `Queued ${queuedUpdates.length} hour updates. Total pending: ${pendingCount}. Call timecard_batch_save to submit.`
+        message: `Queued ${queuedUpdates.length} hour updates. Total pending: ${pendingCount}. Call timecard_save to save.`
       };
     } catch (error) {
       throw new Error(`Failed to queue hour updates: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -237,7 +237,7 @@ IMPORTANT: This only queues updates. You MUST call timecard_save to actually sav
         queued_updates: queuedUpdates.length,
         total_pending: pendingCount,
         updates: queuedUpdates,
-        message: `Queued ${queuedUpdates.length} note updates. Total pending: ${pendingCount}. Call timecard_batch_save to submit.`
+        message: `Queued ${queuedUpdates.length} note updates. Total pending: ${pendingCount}. Call timecard_save to save.`
       };
     } catch (error) {
       throw new Error(`Failed to queue note updates: ${error instanceof Error ? error.message : 'Unknown error'}`);
