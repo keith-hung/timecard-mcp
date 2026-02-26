@@ -299,10 +299,18 @@ export function reconstructFormState(
       form[`actprogress${rowIndex}`] = '';
     }
 
-    // Set record values for each day
+    // Set record, note, and progress values for each day
     for (const entry of row.entries) {
       if (entry.duration) {
         form[`record${rowIndex}_${entry.dayIndex}`] = entry.duration;
+      }
+      // Notes and progress are empty in raw HTML hidden inputs;
+      // JavaScript populates them from timearray at page load.
+      if (entry.note) {
+        form[`note${rowIndex}_${entry.dayIndex}`] = entry.note;
+      }
+      if (entry.progress) {
+        form[`progress${rowIndex}_${entry.dayIndex}`] = entry.progress;
       }
     }
 
@@ -344,6 +352,12 @@ export function reconstructFormState(
       if (entry.duration) {
         form[`overrecord${overRowIndex}_${entry.dayIndex}`] = entry.duration;
       }
+      if (entry.note) {
+        form[`overnote${overRowIndex}_${entry.dayIndex}`] = entry.note;
+      }
+      if (entry.progress) {
+        form[`overprogress${overRowIndex}_${entry.dayIndex}`] = entry.progress;
+      }
     }
 
     overRowIndex++;
@@ -356,6 +370,26 @@ export function reconstructFormState(
     for (let k = 0; k < 7; k++) {
       if (!form[`overrecord${i}_${k}`]) form[`overrecord${i}_${k}`] = '';
     }
+  }
+
+  // Calculate daily subtotals (norTotal, oveTotal, colTotal)
+  // weekinfo_deal.jsp reads norTotal{k} via Float.parseFloat — NPE if missing!
+  const norTotals = [0, 0, 0, 0, 0, 0, 0];
+  const oveTotals = [0, 0, 0, 0, 0, 0, 0];
+  for (const entry of timeEntries) {
+    if (entry.duration) {
+      norTotals[entry.dayIndex] += parseFloat(entry.duration) || 0;
+    }
+  }
+  for (const entry of overtimeEntries) {
+    if (entry.duration) {
+      oveTotals[entry.dayIndex] += parseFloat(entry.duration) || 0;
+    }
+  }
+  for (let k = 0; k < 7; k++) {
+    form[`norTotal${k}`] = norTotals[k].toString();
+    form[`oveTotal${k}`] = oveTotals[k].toString();
+    form[`colTotal${k}`] = (norTotals[k] + oveTotals[k]).toString();
   }
 
   return form;

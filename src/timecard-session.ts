@@ -469,8 +469,14 @@ export class TimeCardSession {
         baseFormData[key] = value;
       }
 
-      // 4. Validate daily hours
+      // 4. Recalculate norTotal after applying pending updates
+      //    (weekinfo_deal.jsp reads norTotal{k} — NPE if missing or stale)
       const dailyHours = this.calculateDailyHours(baseFormData);
+      for (let k = 0; k < 7; k++) {
+        baseFormData[`norTotal${k}`] = (dailyHours[k] || 0).toString();
+      }
+
+      // 5. Validate daily hours
       const validationError = this.validateDailyHours(dailyHours, 8);
       if (validationError) {
         console.error(`[Batch] Validation failed: ${validationError}`);
@@ -478,21 +484,21 @@ export class TimeCardSession {
       }
       console.log('[Batch] Daily hours validation passed:', dailyHours);
 
-      // 5. Remove submit buttons (submit is STRICTLY PROHIBITED)
+      // 6. Remove submit buttons (submit is STRICTLY PROHIBITED)
       delete baseFormData['submit'];
       delete baseFormData['submit2'];
 
-      // 6. Add save action
+      // 7. Add save action
       baseFormData['save'] = ' save ';
 
-      // 7. POST to weekinfo_deal.jsp
+      // 8. POST to weekinfo_deal.jsp
       console.log('[Batch] POSTing to weekinfo_deal.jsp');
       const response = await this.httpClient.post(
         'Timecard/timecard_week/weekinfo_deal.jsp',
         baseFormData,
       );
 
-      // 8. Check response
+      // 9. Check response
       const status = response.status;
       console.log(`[Batch] Response status: ${status}`);
 
