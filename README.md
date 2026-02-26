@@ -1,6 +1,6 @@
 # TimeCard MCP
 
-A Model Context Protocol (MCP) server for automating TimeCard timesheet management using Playwright browser automation.
+A Model Context Protocol (MCP) server for automating TimeCard timesheet management via direct HTTP requests.
 
 ## ⚡ Performance Optimizations
 
@@ -10,8 +10,8 @@ This MCP uses batch operations exclusively for optimal performance:
   - 75% faster than legacy UI-based operations
   - Zero UI operations - direct form POST to server
 
-- **💾 Session Persistence**: Browser context reuse between restarts
-  - 60% reduction in re-login frequency
+- **💾 Session Persistence**: HTTP session cookie reuse between restarts
+  - Minimal re-login frequency
   - Session state saved and restored automatically
 
 **Workflow:**
