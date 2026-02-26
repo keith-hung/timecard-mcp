@@ -21,7 +21,6 @@ This guide is for developers who want to understand, modify, or extend TimeCard 
 - Node.js 18+ (LTS recommended)
 - npm or yarn
 - Git
-- Chrome/Chromium browser
 - Access to a TimeCard system for testing
 
 ### Local Development Environment
@@ -33,9 +32,6 @@ cd timecard-mcp
 
 # Install dependencies
 npm install
-
-# Install Playwright browsers
-npx playwright install chromium
 
 # Create development environment file
 cp .env.example .env
@@ -80,9 +76,8 @@ TIMECARD_BASE_URL=http://localhost:3000/app/
 LOG_LEVEL=debug
 NODE_ENV=development
 
-# Browser debugging
-BROWSER_HEADLESS=false
-BROWSER_DEVTOOLS=true
+# Debug settings
+LOG_LEVEL=debug
 ```
 
 ## Architecture Overview
@@ -92,14 +87,8 @@ BROWSER_DEVTOOLS=true
 ```
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
 │   MCP Client    │───▶│   TimeCard MCP   │───▶│  TimeCard Web   │
-│  (Claude, etc)  │    │     Server       │    │    Application  │
+│  (Claude, etc)  │    │   Server (HTTP)  │    │    Application  │
 └─────────────────┘    └──────────────────┘    └─────────────────┘
-                              │
-                              ▼
-                       ┌──────────────────┐
-                       │   Playwright     │
-                       │   Browser        │
-                       └──────────────────┘
 ```
 
 ### Core Components
@@ -113,10 +102,10 @@ BROWSER_DEVTOOLS=true
 
 #### 2. Session Management (`src/timecard-session.ts`)
 
-- Browser automation orchestration
+- HTTP request orchestration and HTML parsing
 - Authentication and session persistence
-- Navigation and state management
-- Automatic cleanup and recovery
+- Page fetching, caching, and state management
+- Automatic session recovery
 
 #### 3. Tool Categories (`src/tools/`)
 
@@ -142,10 +131,10 @@ BROWSER_DEVTOOLS=true
 3. Session Authentication Check
    │
    ▼
-4. Browser Automation
+4. HTTP Request + HTML Parsing
    │
    ▼
-5. TimeCard Web Interaction
+5. TimeCard Server Interaction
    │
    ▼
 6. Response Processing
@@ -162,6 +151,10 @@ BROWSER_DEVTOOLS=true
 src/
 ├── index.ts                 # MCP server entry point
 ├── timecard-session.ts      # Session management
+├── http/
+│   └── client.ts           # HTTP client with cookie jar
+├── parser/
+│   └── html-parser.ts      # Regex-based HTML parsers
 ├── tools/                   # MCP tool implementations
 │   ├── index.ts            # Tool type definitions and exports
 │   ├── auth-tools.ts       # Authentication tools
@@ -214,8 +207,8 @@ enum TimeCardErrorCode {
   SESSION_EXPIRED = "SESSION_EXPIRED",
   INVALID_PROJECT = "INVALID_PROJECT",
   INVALID_ACTIVITY = "INVALID_ACTIVITY",
-  BROWSER_ERROR = "BROWSER_ERROR",
-  TIMEOUT_ERROR = "TIMEOUT_ERROR",
+  HTTP_ERROR = "HTTP_ERROR",
+  PARSE_ERROR = "PARSE_ERROR",
 }
 
 class TimeCardError extends Error {
@@ -493,41 +486,14 @@ module.exports = {
 
 ### Mock Setup
 
-**Playwright Mock:**
+**HTTP Client Mock:**
 
 ```typescript
 // tests/fixtures/mock-timecard.ts
-import { Page } from "playwright";
+import { HttpClient } from "../../src/http/client";
 
-export class MockTimeCardPage {
-  constructor(private page: Page) {}
-
-  async mockLogin(success: boolean = true) {
-    await this.page.route("**/login", (route) => {
-      if (success) {
-        route.fulfill({
-          status: 302,
-          headers: { Location: "/dashboard" },
-        });
-      } else {
-        route.fulfill({
-          status: 401,
-          body: "Authentication failed",
-        });
-      }
-    });
-  }
-
-  async mockProjectsAPI(projects: any[]) {
-    await this.page.route("**/api/projects", (route) => {
-      route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ projects }),
-      });
-    });
-  }
-}
+// Use captured HTML fixtures for parser unit tests
+// See tests/fixtures/ for sample HTML from TimeCard pages
 ```
 
 ## Contributing
@@ -720,26 +686,17 @@ git push origin v1.0.0
 
 ## Performance Considerations
 
-### Browser Optimization
+### HTTP Client
 
-- Session reuse to avoid repeated logins
-- Efficient element selection strategies
-- Memory cleanup after operations
-- Connection pooling for multiple sessions
+- Session cookie reuse to avoid repeated logins
+- HTML page caching to reduce redundant requests
+- Cache invalidation after save operations
 
 ### Error Recovery
 
-- Automatic retry mechanisms
+- Automatic re-login on session expiry
 - Graceful degradation on failures
-- Session restoration after timeouts
-- Browser crash recovery
-
-### Monitoring
-
-- Performance metrics collection
-- Error rate tracking
-- Session duration monitoring
-- Resource usage alerts
+- Session restoration from persisted state
 
 ---
 
@@ -750,12 +707,6 @@ git push origin v1.0.0
 ```bash
 # Enable debug logging
 DEBUG=timecard:* npm start
-
-# Browser debugging
-BROWSER_HEADLESS=false BROWSER_DEVTOOLS=true npm start
-
-# Playwright debugging
-DEBUG=pw:* npm start
 ```
 
 ### Common Debug Scenarios
@@ -763,20 +714,15 @@ DEBUG=pw:* npm start
 **Authentication Issues:**
 
 ```typescript
-// Add debug logging to auth tools
-console.log("Login attempt:", { username, baseUrl });
-console.log("Page URL after login:", page.url());
-console.log("Page title:", await page.title());
+// Use timecard_debug_page_content to inspect raw HTML
+// Check if login page is returned (session expired)
 ```
 
-**Element Selection:**
+**HTML Parsing Issues:**
 
 ```typescript
-// Debug element selection
-const element = page.locator(selector);
-console.log("Element count:", await element.count());
-console.log("Element visible:", await element.isVisible());
-await element.screenshot({ path: "debug-element.png" });
+// Use timecard_debug_page_content to get raw HTML
+// Test regex patterns against the HTML in isolation
 ```
 
 ---

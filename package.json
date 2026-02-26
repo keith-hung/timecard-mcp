@@ -18,13 +18,12 @@
     "timecard",
     "timesheet",
     "automation",
-    "playwright"
+    "http"
   ],
   "author": "Keith",
   "license": "MIT",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^0.6.0",
-    "playwright": "^1.45.0"
+    "@modelcontextprotocol/sdk": "^0.6.0"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
