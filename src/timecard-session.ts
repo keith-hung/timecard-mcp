@@ -380,7 +380,7 @@ export class TimeCardSession {
    * Reconstructs what the DOM would contain after JavaScript initialization.
    */
   async getCurrentFormState(): Promise<Record<string, string>> {
-    const html = await this.fetchTimesheetPage();
+    const html = await this.fetchTimesheetPage(this.cachedDate ?? undefined);
     const activities = parseActivityList(html);
     const timeEntries = parseTimearray(html);
     const overtimeEntries = parseOvertimeArray(html);
@@ -456,7 +456,9 @@ export class TimeCardSession {
       console.log(`[Batch] Starting batch save with ${this.pendingFormUpdates.size} pending updates`);
 
       // 1. Ensure page is fetched (sets session attributes on server)
-      const html = await this.fetchTimesheetPage();
+      //    Use cachedDate to re-fetch the same week — without it, daychoose.jsp
+      //    defaults to the current week, which would silently save to the wrong week.
+      const html = await this.fetchTimesheetPage(this.cachedDate ?? undefined);
 
       // 2. Get current form state
       const activities = parseActivityList(html);
