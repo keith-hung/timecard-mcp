@@ -3,6 +3,12 @@ import { TimeCardSession } from '../timecard-session.js';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import {
+  parseActivityList,
+  parseTimearray,
+  buildIndexMapping,
+  parseProjectOptions,
+} from '../parser/html-parser.js';
 
 // Read version info generated during build
 function getVersionInfo() {
@@ -60,18 +66,12 @@ const timecardGetSummary: MCPTool = {
       throw new Error(authResult.message);
     }
 
-    const page = session.getPage();
-    if (!page) {
-      throw new Error('Browser page not available');
-    }
-
-    // Ensure args is not null/undefined
     const safeArgs = args || {};
     const { date } = safeArgs;
 
     try {
-      // Navigate to the timesheet if needed
-      await session.navigateToTimesheet(date);
+      // Fetch the page
+      const html = await session.fetchTimesheetPage(date);
 
       // Calculate week boundaries
       const targetDate = new Date(date);
@@ -85,7 +85,15 @@ const timecardGetSummary: MCPTool = {
       const weekStart = monday.toISOString().split('T')[0];
       const weekEnd = saturday.toISOString().split('T')[0];
 
-      // Collect statistics
+      // Parse data
+      const activities = parseActivityList(html);
+      const timeEntries = parseTimearray(html);
+      const projectOptions = parseProjectOptions(html);
+      const mapping = buildIndexMapping(activities);
+      const projectNameMap = new Map(projectOptions.map(p => [p.id, p.name]));
+
+      const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+
       const dailyTotals: Record<string, number> = {
         monday: 0, tuesday: 0, wednesday: 0,
         thursday: 0, friday: 0, saturday: 0
@@ -93,38 +101,37 @@ const timecardGetSummary: MCPTool = {
 
       const projectBreakdown: Record<string, number> = {};
       let totalHours = 0;
-      let activeEntries = 0;
 
-      const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+      // Group entries by (projectIndex, activityIndex)
+      const entryGroups = new Map<string, {
+        projectIndex: number;
+        entries: typeof timeEntries;
+      }>();
 
-      // Process each entry
-      for (let i = 0; i < 10; i++) {
-        const projectSelect = page.locator(`select[name="project${i}"]`);
-        const activitySelect = page.locator(`select[name="activity${i}"]`);
+      for (const entry of timeEntries) {
+        const key = `${entry.projectIndex}_${entry.activityIndex}`;
+        if (!entryGroups.has(key)) {
+          entryGroups.set(key, { projectIndex: entry.projectIndex, entries: [] });
+        }
+        entryGroups.get(key)!.entries.push(entry);
+      }
 
-        if (await projectSelect.count() === 0) continue;
+      const activeEntries = entryGroups.size;
 
-        const projectValue = await projectSelect.inputValue();
-        const activityValue = await activitySelect.inputValue();
+      for (const [, group] of entryGroups) {
+        const projectId = mapping.projectIndexToId.get(group.projectIndex) || '';
+        const projectName = projectNameMap.get(projectId) || `Project ${projectId}`;
 
-        if (!projectValue || !activityValue) continue;
+        if (!projectBreakdown[projectName]) {
+          projectBreakdown[projectName] = 0;
+        }
 
-        activeEntries++;
-        const projectName = await projectSelect.locator('option:checked').textContent() || `Project ${projectValue}`;
-
-        // Sum daily hours for this entry
-        for (let d = 0; d < 6; d++) {
-          const hourSelect = page.locator(`select[name="record${i}_${d}"]`);
-          if (await hourSelect.count() > 0) {
-            const hourValue = await hourSelect.inputValue();
-            if (hourValue) {
-              const hours = parseFloat(hourValue);
-              dailyTotals[days[d]] += hours;
+        for (const entry of group.entries) {
+          if (entry.dayIndex >= 0 && entry.dayIndex < 6) {
+            const hours = parseFloat(entry.duration) || 0;
+            if (hours > 0) {
+              dailyTotals[days[entry.dayIndex]] += hours;
               totalHours += hours;
-
-              if (!projectBreakdown[projectName]) {
-                projectBreakdown[projectName] = 0;
-              }
               projectBreakdown[projectName] += hours;
             }
           }

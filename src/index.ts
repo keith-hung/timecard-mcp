@@ -86,11 +86,11 @@ async function main() {
   await server.connect(transport);
 }
 
-// Cleanup on exit
+// Cleanup on exit — save session state for reuse
 async function cleanup() {
   try {
-    await timecardSession.closeBrowser();
-  } catch (error) {
+    await timecardSession.saveSessionState();
+  } catch {
     // Silently ignore cleanup errors
   }
 }
